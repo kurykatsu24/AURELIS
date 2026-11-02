@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURELIS | Network Intelligence</title>
+
+    <!-- Google Fonts: Unbounded (Headings) & Space Mono (Body/Data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Unbounded:wght@300;400;600;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+    <!-- Atmospheric animated background glow -->
+    <div class="atmospheric-glow"></div>
+
+    <!-- Top Navigation -->
+    <header class="top-nav">
+        <div class="brand-container">
+            <h1 class="logo-text">AURELIS</h1>
+            <span class="brand-subtitle">NETWORK INTELLIGENCE & SECURITY MONITORING SYSTEM</span>
+        </div>
+        <div class="nav-status">
+            <div class="status-indicator">
+                <span class="status-dot online"></span>
+                <span class="status-text">Network Monitoring Active</span>
+            </div>
+            <div class="last-scan">
+                <i data-lucide="clock" class="icon-sm"></i>
+                <span>Last Scan: 14:22:05 (Demo)</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Application Layout -->
+    <div class="app-container">
+
+        <!-- Left Sidebar Navigation -->
+        <aside class="sidebar">
+            <nav class="nav-group">
+                <h3 class="nav-group-title">MAIN</h3>
+                <button class="nav-item active" data-target="overview">
+                    <i data-lucide="layout-dashboard"></i> Overview
+                </button>
+                <button class="nav-item" data-target="inventory">
+                    <i data-lucide="server"></i> Device Inventory
+                </button>
+                <button class="nav-item" data-target="diagnostics">
+                    <i data-lucide="activity"></i> Network Diagnostics
+                </button>
+                <button class="nav-item" data-target="map">
+                    <i data-lucide="network"></i> Network Map
+                </button>
+            </nav>
+
+            <nav class="nav-group">
+                <h3 class="nav-group-title">MONITORING</h3>
+                <button class="nav-item" data-target="history">
+                    <i data-lucide="history"></i> Network History
+                </button>
+                <button class="nav-item" data-target="reports">
+                    <i data-lucide="file-text"></i> Reports
+                </button>
+            </nav>
+
+            <nav class="nav-group">
+                <h3 class="nav-group-title">SECURITY</h3>
+                <button class="nav-item" data-target="security">
+                    <i data-lucide="shield-alert"></i> Security Recommendations
+                </button>
+            </nav>
+
+            <nav class="nav-group bottom-group">
+                <h3 class="nav-group-title">SYSTEM</h3>
+                <button class="nav-item" data-target="settings">
+                    <i data-lucide="settings"></i> Settings
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="content-area">
+
+            <!-- OVERVIEW PAGE -->
+            <section id="overview" class="page-section active">
+                <header class="page-header">
+                    <div>
+                        <h2 class="page-title">Overview</h2>
+                        <p class="page-description">Monitor your local network, connected devices, and overall network
+                            performance.</p>
+                    </div>
+                    <div class="badge-demo">Demo Mode</div>
+                </header>
+
+                <!-- Metric Cards Grid -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <h4 class="metric-title">Discovered Devices</h4>
+                            <div class="metric-icon"><i data-lucide="search"></i></div>
+                        </div>
+                        <div class="metric-value">12</div>
+                        <p class="metric-desc">Identified in latest scan</p>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <h4 class="metric-title">Reachable Devices</h4>
+                            <div class="metric-icon"><i data-lucide="check-circle-2"></i></div>
+                        </div>
+                        <div class="metric-value">10</div>
+                        <p class="metric-desc">Responded to connectivity check</p>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <h4 class="metric-title">Average Latency</h4>
+                            <div class="metric-icon"><i data-lucide="zap"></i></div>
+                        </div>
+                        <div class="metric-value">8.4 <span class="unit">ms</span></div>
+                        <p class="metric-desc">Across all active devices</p>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <h4 class="metric-title">Packet Loss</h4>
+                            <div class="metric-icon alert-icon"><i data-lucide="alert-triangle"></i></div>
+                        </div>
+                        <div class="metric-value">0.0 <span class="unit">%</span></div>
+                        <p class="metric-desc">During last diagnostic test</p>
+                    </div>
+                </div>
+
+                <!-- Dashboard Layout Grid -->
+                <div class="dashboard-grid">
+
+                    <!-- Network Performance Chart Placeholder -->
+                    <div class="panel chart-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">Network Performance</h3>
+                            <select class="panel-select">
+                                <option>Last 1 Hour</option>
+                                <option>Last 24 Hours</option>
+                            </select>
+                        </div>
+                        <div class="chart-placeholder">
+                            <i data-lucide="bar-chart-2"></i>
+                            <p>[ Latency Trend Chart Placeholder ]</p>
+                        </div>
+                    </div>
+
+                    <!-- Device Status Overview -->
+                    <div class="panel status-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">Device Status</h3>
+                        </div>
+                        <div class="status-bars">
+                            <div class="status-row">
+                                <span>Reachable</span>
+                                <span class="status-count">10</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress fill-reachable" style="width: 83%"></div>
+                            </div>
+
+                            <div class="status-row">
+                                <span>Unreachable</span>
+                                <span class="status-count">2</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress fill-unreachable" style="width: 17%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Network Activity -->
+                    <div class="panel activity-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">Recent Activity</h3>
+                        </div>
+                        <ul class="activity-list">
+                            <li>
+                                <span class="activity-time">14:22:05</span>
+                                <span class="activity-desc">Full network scan completed</span>
+                            </li>
+                            <li>
+                                <span class="activity-time">14:15:30</span>
+                                <span class="activity-desc">New device observed (Redmi Turbo 4)</span>
+                            </li>
+                            <li>
+                                <span class="activity-time">14:10:00</span>
+                                <span class="activity-desc">Diagnostic ping test executed</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Device Inventory Preview -->
+                    <div class="panel table-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">Discovered Devices Preview</h3>
+                            <button class="link-button"
+                                onclick="document.querySelector('[data-target=inventory]').click()">View All</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Device Name</th>
+                                        <th>IP Address</th>
+                                        <th>MAC Address</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>AURELIS-Gateway</td>
+                                        <td class="font-mono">192.168.1.1</td>
+                                        <td class="font-mono">AA:BB:CC:DD:EE:01</td>
+                                        <td><span class="badge badge-online">Reachable</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>ThinkPad-T480</td>
+                                        <td class="font-mono">192.168.1.15</td>
+                                        <td class="font-mono">AA:BB:CC:DD:EE:02</td>
+                                        <td><span class="badge badge-online">Reachable</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Unknown-Device</td>
+                                        <td class="font-mono">192.168.1.42</td>
+                                        <td class="font-mono">AA:BB:CC:DD:EE:03</td>
+                                        <td><span class="badge badge-offline">Unreachable</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- PLACEHOLDERS FOR OTHER PAGES -->
+
+            <section id="inventory" class="page-section">
+                <header class="page-header">
+                    <div>
+                        <h2 class="page-title">Device Inventory</h2>
+                        <p class="page-description">Complete list of discovered network devices and hardware profiles.
+                        </p>
+                    </div>
+                </header>
+                <div class="panel">
+                    <p>[ Full Device Table and Filters Placeholder ]</p>
+                </div>
+            </section>
+
+            <section id="diagnostics" class="page-section">
+                <header class="page-header">
+                    <div>
+                        <h2 class="page-title">Network Diagnostics</h2>
+                        <p class="page-description">Execute connectivity tests and analyze detailed response metrics.
+                        </p>
+                    </div>
+                </header>
+                <div class="panel">
+                    <p>[ Ping Test Controls and Results Placeholder ]</p>
+                </div>
+            </section>
+
+            <section id="map" class="page-section">
+                <header class="page-header">
+                    <div>
+                        <h2 class="page-title">Network Map</h2>
+                        <p class="page-description">Logical topology of gateway and connected nodes.</p>
+                    </div>
+                </header>
+                <div class="panel chart-panel">
+                    <p>[ Network Topology Canvas Placeholder ]</p>
+                </div>
+            </section>
+
+            <section id="history" class="page-section">
+                <header class="page-header">
+                    <div>
+                        <h2 class="page-title">Network History</h2>
+                        <p class="page-description">Records of previous scans and network topology changes.</p>
+                    </div>
+                </header>
+                <div class="panel">
+                    <p>[ Audit Log and Historical Data Placeholder ]</p>
+                </div>
+            </section>
+
+            <section id="reports" class="page-section">
+                <header class="page-header">
+                    <div>
+                        <h2 class="page-title">Reports</h2>
+                        <p class="page-description">Generated diagnostic summaries and performance reports.</p>
+                    </div>
+                </header>
+                <div class="panel">
+                    <p>[ Report Generation and Export Options Placeholder ]</p>
+                </div>
+            </section>
+
+            <section id="security" class="page-section">
+                <header class="page-header">
+                    <div>
+                        <h2 class="page-title">Security Recommendations</h2>
+                        <p class="page-description">Observations and actions based on network diagnostics.</p>
+                    </div>
+                </header>
+                <div class="panel">
+                    <p>[ Security Rule Engine and Alert Cards Placeholder ]</p>
+                </div>
+            </section>
+
+            <section id="settings" class="page-section">
+                <header class="page-header">
+                    <div>
+                        <h2 class="page-title">Settings</h2>
+                        <p class="page-description">Application preferences and scanning configurations.</p>
+                    </div>
+                </header>
+                <div class="panel">
+                    <p>[ Configuration Forms Placeholder ]</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/main.js"></script>
+</body>
+
+</html>
