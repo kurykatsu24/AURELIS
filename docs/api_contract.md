@@ -1,5 +1,5 @@
 # AURELIS API Contract
-*This document will define the JSON data structures and endpoints used to pass data between Duke's Python networking modules and Kurt's frontend dashboard.*
+*This document will define the JSON data structures and endpoints used to pass data between Duke's   Python networking modules and Kurt's frontend dashboard.*
 
 ## 1. Network Discovery
 
