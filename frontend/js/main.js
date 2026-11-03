@@ -2,7 +2,48 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Initialize Lucide Icons
     lucide.createIcons();
 
-    // 2. Sidebar Navigation Logic
+
+// 2. Dark/Light Mode Switcher Logic
+    const themeToggleBtn = document.getElementById('theme-toggle');
+
+    // Function to dynamically render the correct Lucide icon
+    function updateThemeIcon(isLight) {
+        if (!themeToggleBtn) return;
+        // In Light Mode, show Sun icon (click to switch to Dark). In Dark Mode, show Moon icon (click to switch to Light).
+        const iconName = isLight ? 'sun' : 'moon';
+        themeToggleBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+        lucide.createIcons();
+    }
+
+    // Load saved theme preference on page load
+    const savedTheme = localStorage.getItem('aurelis-theme') || 'dark';
+    if (savedTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        updateThemeIcon(true);
+    } else {
+        updateThemeIcon(false);
+    }
+
+    // Toggle button click handler
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+            const isLightNow = document.documentElement.getAttribute('data-theme') === 'light';
+
+            if (!isLightNow) {
+                // Switch to Light Mode
+                document.documentElement.setAttribute('data-theme', 'light');
+                localStorage.setItem('aurelis-theme', 'light');
+                updateThemeIcon(true);
+            } else {
+                // Switch to Dark Mode
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('aurelis-theme', 'dark');
+                updateThemeIcon(false);
+            }
+        });
+    }
+
+    // 3. Sidebar Navigation Logic
     const navItems = document.querySelectorAll('.nav-item');
     const pageSections = document.querySelectorAll('.page-section');
 
@@ -27,4 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+
 });
