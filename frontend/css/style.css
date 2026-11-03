@@ -56,6 +56,55 @@
 }
 
 /* ==========================================================================
+   DARK/LIGHT MODE
+   ========================================================================== */
+[data-theme="light"] {
+    /* Base Backgrounds */
+    --color-bg-main: #f4f5f8;
+    --color-bg-secondary: #ffffff;
+    --color-bg-card: #eef0f5;
+    
+    /* Typography */
+    --color-text-primary: #121319;
+    --color-text-secondary: #5c6070;
+
+    /* Borders & Glass Effects */
+    --color-border: rgba(0, 0, 0, 0.12);
+    --glass-bg: rgba(255, 255, 255, 0.6);
+    --glass-border: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .top-nav {
+    background-color: #ffffff;
+}
+
+[data-theme="light"] .nav-item:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .panel-select {
+    background: #ffffff;
+}
+
+.theme-btn {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.theme-btn:hover {
+    border-color: var(--color-pink);
+    color: var(--color-pink);
+}
+
+/* ==========================================================================
    Base Styles & Reset
    ========================================================================== */
 * {
