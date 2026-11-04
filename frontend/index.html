@@ -28,10 +28,13 @@
     <header class="top-nav">
         <div class="brand-container">
             <h1 class="logo-text">AURELIS</h1>
-            <span class="brand-subtitle">NETWORK INTELLIGENCE & SECURITY MONITORING SYSTEM</span>
+            <span class="brand-subtitle">
+                NETWORK INTELLIGENCE <span class="nav-separator">|</span>
+                <span id="gateway-ip-display">Connecting...</span>
+            </span>
         </div>
 
-        <div class="nav-status">           
+        <div class="nav-status">
             <button id="theme-toggle" class="theme-btn" title="Toggle Theme">
                 <i data-lucide="moon" id="theme-icon"></i>
             </button>
@@ -104,7 +107,10 @@
                         <p class="page-description">Monitor your local network, connected devices, and overall network
                             performance.</p>
                     </div>
-                    <div class="badge-demo">Demo Mode</div>
+                    <button id="scan-network-btn" class="badge-demo"
+                        style="cursor: pointer; display: flex; align-items: center; gap: 8px; border: none;">
+                        <i data-lucide="refresh-cw" id="scan-icon" style="width: 14px; height: 14px;"></i> Scan Network
+                    </button>
                 </header>
 
                 <!-- Metric Cards Grid -->
@@ -114,7 +120,7 @@
                             <h4 class="metric-title">Discovered Devices</h4>
                             <div class="metric-icon"><i data-lucide="search"></i></div>
                         </div>
-                        <div class="metric-value">12</div>
+                        <div class="metric-value" id="metric-discovered">--</div>
                         <p class="metric-desc">Identified in latest scan</p>
                     </div>
 
@@ -123,7 +129,7 @@
                             <h4 class="metric-title">Reachable Devices</h4>
                             <div class="metric-icon"><i data-lucide="check-circle-2"></i></div>
                         </div>
-                        <div class="metric-value">10</div>
+                        <div class="metric-value" id="metric-reachable">--</div>
                         <p class="metric-desc">Responded to connectivity check</p>
                     </div>
 
@@ -223,10 +229,11 @@
                                         <th>Device Name</th>
                                         <th>IP Address</th>
                                         <th>MAC Address</th>
+                                        <th>Timestamp</th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="device-table-body">
                                     <tr>
                                         <td>AURELIS-Gateway</td>
                                         <td class="font-mono">192.168.1.1</td>
@@ -263,8 +270,23 @@
                         </p>
                     </div>
                 </header>
-                <div class="panel">
-                    <p>[ Full Device Table and Filters Placeholder ]</p>
+                <div class="panel table-panel">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Device Name</th>
+                                    <th>IP Address</th>
+                                    <th>MAC Address</th>
+                                    <th>Timestamp</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="full-inventory-body">
+                                <!-- Populated dynamically by main.js with all devices -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -276,8 +298,40 @@
                         </p>
                     </div>
                 </header>
-                <div class="panel">
-                    <p>[ Ping Test Controls and Results Placeholder ]</p>
+
+                <div class="panel" style="margin-bottom: 24px;">
+                    <h3 class="panel-title" style="margin-bottom: 16px;">Targeted Ping Test</h3>
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="ping-target-input" placeholder="Enter IP (e.g. 192.168.86.1)"
+                            class="panel-select"
+                            style="flex: 1; min-width: 240px; padding: 10px 14px; background: var(--color-bg-main); border: 1px solid rgba(255,255,255,0.1); color: inherit; font-family: var(--font-mono);"
+                            value="192.168.86.1">
+                        <button id="run-ping-btn" class="badge-demo"
+                            style="cursor: pointer; padding: 10px 20px; border: none; background: var(--color-pink); color: var(--color-bg-main); font-weight: bold;">Run
+                            Ping Test</button>
+                    </div>
+                </div>
+
+                <div class="panel" id="ping-results-panel" style="display: none;">
+                    <h3 class="panel-title" style="margin-bottom: 16px;">Diagnostic Results</h3>
+                    <div class="metrics-grid" style="margin-bottom: 0;">
+                        <div class="metric-card">
+                            <h4 class="metric-title">Status</h4>
+                            <div class="metric-value" id="res-status" style="font-size: 1.5rem;">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4 class="metric-title">Packet Loss</h4>
+                            <div class="metric-value" id="res-loss">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4 class="metric-title">Avg Latency</h4>
+                            <div class="metric-value" id="res-latency">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4 class="metric-title">Received</h4>
+                            <div class="metric-value" id="res-received">--</div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -299,9 +353,64 @@
                         <h2 class="page-title">Network History</h2>
                         <p class="page-description">Records of previous scans and network topology changes.</p>
                     </div>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div class="badge-demo"
+                            style="display: flex; align-items: center; gap: 6px; background: rgba(0, 255, 128, 0.1); color: #00ff80; border: 1px solid rgba(0, 255, 128, 0.3);">
+                            <span class="status-dot online" style="width: 8px; height: 8px;"></span> Live Audit Stream
+                            Active
+                        </div>
+                        <button id="export-csv-btn" class="badge-demo"
+                            style="cursor: pointer; display: flex; align-items: center; gap: 6px; border: none; background: var(--color-pink); color: var(--color-bg-main); font-weight: bold;">
+                            <i data-lucide="download" style="width: 14px; height: 14px;"></i> Export CSV
+                        </button>
+                        <button id="clear-history-btn" class="badge-demo"
+                            style="cursor: pointer; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255, 60, 60, 0.4); background: rgba(255, 60, 60, 0.1); color: #ff6b6b;">
+                            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Clear History
+                        </button>
+                    </div>
                 </header>
-                <div class="panel">
-                    <p>[ Audit Log and Historical Data Placeholder ]</p>
+
+                <div class="dashboard-grid">
+                    <div class="panel table-panel">
+                        <h3 class="panel-title" style="margin-bottom: 16px;">Recent Network Scans (Last 25)</h3>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Scan ID</th>
+                                        <th>Timestamp</th>
+                                        <th>Devices Found</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-scans-body">
+                                    <tr>
+                                        <td colspan="3" style="text-align:center;">Loading scans...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="panel table-panel">
+                        <h3 class="panel-title" style="margin-bottom: 16px;">Recent Ping Diagnostics (Last 25)</h3>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Target IP</th>
+                                        <th>Latency</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-pings-body">
+                                    <tr>
+                                        <td colspan="4" style="text-align:center;">Loading pings...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </section>
 
