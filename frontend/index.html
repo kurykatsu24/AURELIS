@@ -282,8 +282,40 @@
                         </p>
                     </div>
                 </header>
-                <div class="panel">
-                    <p>[ Ping Test Controls and Results Placeholder ]</p>
+
+                <div class="panel" style="margin-bottom: 24px;">
+                    <h3 class="panel-title" style="margin-bottom: 16px;">Targeted Ping Test</h3>
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="ping-target-input" placeholder="Enter IP (e.g. 192.168.86.1)"
+                            class="panel-select"
+                            style="flex: 1; min-width: 240px; padding: 10px 14px; background: var(--color-bg-main); border: 1px solid rgba(255,255,255,0.1); color: inherit; font-family: var(--font-mono);"
+                            value="192.168.86.1">
+                        <button id="run-ping-btn" class="badge-demo"
+                            style="cursor: pointer; padding: 10px 20px; border: none; background: var(--color-pink); color: var(--color-bg-main); font-weight: bold;">Run
+                            Ping Test</button>
+                    </div>
+                </div>
+
+                <div class="panel" id="ping-results-panel" style="display: none;">
+                    <h3 class="panel-title" style="margin-bottom: 16px;">Diagnostic Results</h3>
+                    <div class="metrics-grid" style="margin-bottom: 0;">
+                        <div class="metric-card">
+                            <h4 class="metric-title">Status</h4>
+                            <div class="metric-value" id="res-status" style="font-size: 1.5rem;">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4 class="metric-title">Packet Loss</h4>
+                            <div class="metric-value" id="res-loss">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4 class="metric-title">Avg Latency</h4>
+                            <div class="metric-value" id="res-latency">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <h4 class="metric-title">Received</h4>
+                            <div class="metric-value" id="res-received">--</div>
+                        </div>
+                    </div>
                 </div>
             </section>
 

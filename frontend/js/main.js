@@ -43,6 +43,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Auto-trigger network scan on initial page load
+    window.addEventListener('load', () => {
+        const scanBtn = document.getElementById('scan-network-btn');
+        if (scanBtn) {
+            scanBtn.click(); // Automatically simulates clicking the scan button
+        }
+    });
+
     // 3. Sidebar Navigation Logic
     const navItems = document.querySelectorAll('.nav-item');
     const pageSections = document.querySelectorAll('.page-section');
@@ -145,6 +153,74 @@ document.addEventListener('DOMContentLoaded', () => {
                 scanBtn.innerHTML = `<i data-lucide="refresh-cw"></i> Scan Network`;
                 lucide.createIcons();
             }
+        });
+    }
+
+    // 6. Backend API Integration (Phase 3: Diagnostics & Live Metrics)
+    const runPingBtn = document.getElementById('run-ping-btn');
+    const pingInput = document.getElementById('ping-target-input');
+    const pingResultsPanel = document.getElementById('ping-results-panel');
+    const metricReachable = document.getElementById('metric-reachable');
+    const metricLatency = document.getElementById('metric-latency');
+    const metricPacketLoss = document.getElementById('metric-packet-loss'); // We'll target this or fallback safely
+
+    if (runPingBtn) {
+        runPingBtn.addEventListener('click', async () => {
+            const ip = pingInput.value.trim();
+            if (!ip) {
+                alert("Please enter a valid IP address.");
+                return;
+            }
+
+            runPingBtn.disabled = true;
+            runPingBtn.textContent = "Testing...";
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/diagnostics/ping`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip_address: ip, count: 4 })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    pingResultsPanel.style.display = 'block';
+
+                    document.getElementById('res-status').textContent = data.status.toUpperCase();
+                    document.getElementById('res-loss').textContent = `${data.packet_loss_percent}%`;
+                    document.getElementById('res-latency').textContent = `${data.avg_latency_ms} ms`;
+                    document.getElementById('res-received').textContent = `${data.packets_received}/${data.packets_sent}`;
+
+                    // Update Overview Dashboard Cards dynamically with real metrics
+                    if (metricLatency) metricLatency.innerHTML = `${data.avg_latency_ms} <span class="unit">ms</span>`;
+                } else {
+                    alert("Diagnostic error: " + result.error);
+                }
+            } catch (err) {
+                console.error("Ping request failed:", err);
+                alert("Failed to connect to Flask diagnostics backend.");
+            } finally {
+                runPingBtn.disabled = false;
+                runPingBtn.textContent = "Run Ping Test";
+            }
+        });
+    }
+
+    // Enhance the existing device scan listener to calculate real reachable stats
+    if (scanBtn) {
+        const originalClick = scanBtn.onclick; // Preserve or extend
+        scanBtn.addEventListener('click', async () => {
+            // After devices fetch successfully, let's update reachable counter
+            setTimeout(() => {
+                const rows = document.querySelectorAll('#device-table-body tr');
+                let onlineCount = 0;
+                rows.forEach(row => {
+                    const badge = row.querySelector('.badge');
+                    if (badge && badge.classList.contains('badge-online')) onlineCount++;
+                });
+                if (metricReachable) metricReachable.textContent = onlineCount;
+            }, 1000);
         });
     }
 
