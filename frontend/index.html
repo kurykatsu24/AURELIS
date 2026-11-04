@@ -229,6 +229,7 @@
                                         <th>Device Name</th>
                                         <th>IP Address</th>
                                         <th>MAC Address</th>
+                                        <th>Timestamp</th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
@@ -269,8 +270,23 @@
                         </p>
                     </div>
                 </header>
-                <div class="panel">
-                    <p>[ Full Device Table and Filters Placeholder ]</p>
+                <div class="panel table-panel">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Device Name</th>
+                                    <th>IP Address</th>
+                                    <th>MAC Address</th>
+                                    <th>Timestamp</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="full-inventory-body">
+                                <!-- Populated dynamically by main.js with all devices -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
