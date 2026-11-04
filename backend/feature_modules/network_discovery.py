@@ -8,7 +8,10 @@ import subprocess
 import platform
 import ipaddress
 import re
-import time
+import concurrent.futures
+
+# Concurrency limit for ping sweeps. Easily adjustable if network bandwidth allows.
+MAX_CONCURRENT_PINGS = 16
 
 def get_local_network_info():
     """
@@ -17,18 +20,17 @@ def get_local_network_info():
     """
     local_ip = "127.0.0.1"
     try:
-        # Create a temporary socket to determine the primary outgoing IP
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
+        # Using a context manager ensures the socket is cleanly closed immediately after use
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
     except Exception:
         try:
             local_ip = socket.gethostbyname(socket.gethostname())
         except Exception:
             pass
 
-    # Estimate subnet assuming a standard /24 local home/office network
+    # Known Limitation: Assumes a standard /24 local home/office network.
     try:
         interface_ip = ipaddress.ip_interface(f"{local_ip}/24")
         network_cidr = str(interface_ip.network)
@@ -46,14 +48,25 @@ def get_arp_table():
     """
     arp_entries = {}
     try:
-        output = subprocess.check_output("arp -a", shell=True, universal_newlines=True)
-        for line in output.splitlines():
+        # shell=True removed. check=True ensures failed commands raise CalledProcessError
+        result = subprocess.run(
+            ["arp", "-a"], 
+            capture_output=True, 
+            text=True, 
+            timeout=5,
+            check=True
+        )
+        for line in result.stdout.splitlines():
             match = re.search(r"\(?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\)?\s+(?:at\s+|[\w]+\s+)?([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})", line)
             if match:
                 ip, mac = match.groups()
                 arp_entries[ip] = mac.lower().replace("-", ":")
-    except Exception:
+                
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+        # Explicitly catching expected subprocess errors so they aren't masked.
+        # FileNotFoundError triggers if 'arp' is somehow missing from the system PATH.
         pass
+        
     return arp_entries
 
 def discover_devices(timeout=1):
@@ -71,41 +84,42 @@ def discover_devices(timeout=1):
     except ValueError:
         return discovered_devices
 
-    # OS-specific ping parameters for network sweep
-    param = "-n" if platform.system().lower() == "windows" else "-c"
-    timeout_param = "-w" if platform.system().lower() == "windows" else "-W"
-    timeout_val = str(int(timeout * 1000)) if platform.system().lower() == "windows" else str(timeout)
+    # OS-specific ping parameters. Prioritizing Windows (-w is ms), falling back to Unix (-W).
+    sys_platform = platform.system().lower()
+    param = "-n" if sys_platform == "windows" else "-c"
+    timeout_param = "-w" if sys_platform == "windows" else "-W"
+    timeout_val = str(int(timeout * 1000)) if sys_platform == "windows" else str(timeout)
 
-    # Fast background ping sweep to populate ARP cache
-    for ip in network.hosts():
-        ip_str = str(ip)
+    def ping_host(ip_str):
         try:
-            subprocess.Popen(
+            subprocess.run(
                 ["ping", param, "1", timeout_param, timeout_val, ip_str],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
+                timeout=timeout + 1.0  # Python-level termination if OS ping command hangs
             )
-        except Exception:
-            continue
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+            pass
 
-    # Allow brief window for responses
-    time.sleep(timeout + 0.5)
+    # Utilizes a bounded worker pool up to MAX_CONCURRENT_PINGS.
+    # It continuously feeds pending pings to available workers instead of executing in batches.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CONCURRENT_PINGS) as executor:
+        executor.map(ping_host, (str(ip) for ip in network.hosts()))
 
     arp_table = get_arp_table()
 
     for ip_str, mac in arp_table.items():
-        if ipaddress.ip_address(ip_str) in network:
-            hostname = "Unknown"
-            try:
-                hostname = socket.gethostbyaddr(ip_str)[0]
-            except Exception:
-                pass
-
-            discovered_devices.append({
-                "ip_address": ip_str,
-                "mac_address": mac,
-                "hostname": hostname,
-                "status": "online"
-            })
+        try:
+            ip_obj = ipaddress.ip_address(ip_str)
+            # Filter out the network address (.0) and broadcast address (.255)
+            if ip_obj in network and ip_obj != network.network_address and ip_obj != network.broadcast_address:
+                discovered_devices.append({
+                    "ip_address": ip_str,
+                    "mac_address": mac,
+                    "hostname": "Unknown",
+                    "status": "online"  # Indicates 'Detected' in ARP cache
+                })
+        except ValueError:
+            continue
 
     return discovered_devices
