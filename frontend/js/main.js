@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
 
 
-// 2. Dark/Light Mode Switcher Logic
+    // 2. Dark/Light Mode Switcher Logic
     const themeToggleBtn = document.getElementById('theme-toggle');
 
     // Function to dynamically render the correct Lucide icon
@@ -69,5 +69,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // 4. Backend API Integration (Phase 2: Network Info)
+    const API_BASE_URL = 'http://127.0.0.1:5000/api';
+
+    async function fetchNetworkInfo() {
+        const ipDisplay = document.getElementById('gateway-ip-display');
+        const statusText = document.querySelector('.status-text');
+        const statusDot = document.querySelector('.status-dot');
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/network/info`);
+            const data = await response.json();
+
+            if (data.success) {
+                // Update header with live IP and Subnet
+                ipDisplay.textContent = `SUBNET: ${data.network_cidr} (HOST: ${data.local_ip})`;
+                statusText.textContent = "Network Monitoring Active";
+                statusDot.className = "status-dot online";
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            console.error("Failed to fetch network info:", error);
+            ipDisplay.textContent = "API DISCONNECTED";
+            statusText.textContent = "Backend Offline";
+            statusDot.className = "status-dot offline";
+            // Note: you may need to add an .offline { background: red; } class in CSS
+        }
+    }
+
+    // Execute the fetch immediately when the app loads
+    fetchNetworkInfo();
 
 });

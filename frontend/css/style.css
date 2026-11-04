@@ -63,7 +63,7 @@
     --color-bg-main: #f4f5f8;
     --color-bg-secondary: #ffffff;
     --color-bg-card: #eef0f5;
-    
+
     /* Typography */
     --color-text-primary: #121319;
     --color-text-secondary: #5c6070;
@@ -204,6 +204,11 @@ h5 {
     display: flex;
     align-items: baseline;
     gap: 16px;
+}
+
+.nav-separator {
+    margin: 0 8px;
+    opacity: 0.5;
 }
 
 .logo-text {
