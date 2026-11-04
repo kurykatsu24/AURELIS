@@ -282,6 +282,100 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Network History Real-Time Stream & Management
+    const historyScansBody = document.getElementById('history-scans-body');
+    const historyPingsBody = document.getElementById('history-pings-body');
+    const clearHistoryBtn = document.getElementById('clear-history-btn');
+    const exportCsvBtn = document.getElementById('export-csv-btn');
+
+    async function fetchHistory() {
+        if (!historyScansBody || !historyPingsBody) return;
+
+        try {
+            const [scansRes, pingsRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/history/scans`),
+                fetch(`${API_BASE_URL}/history/pings`)
+            ]);
+
+            const scansData = await scansRes.json();
+            const pingsData = await pingsRes.json();
+
+            if (scansData.success && scansData.data.length > 0) {
+                historyScansBody.innerHTML = '';
+                scansData.data.forEach(scan => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="font-mono">#${scan.id}</td>
+                        <td class="font-mono" style="opacity: 0.7;">${scan.timestamp}</td>
+                        <td><span class="badge badge-online">${scan.discovered_count} Devices</span></td>
+                    `;
+                    historyScansBody.appendChild(tr);
+                });
+            } else if (historyScansBody) {
+                historyScansBody.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.6;">No scan history recorded yet.</td></tr>`;
+            }
+
+            if (pingsData.success && pingsData.data.length > 0) {
+                historyPingsBody.innerHTML = '';
+                pingsData.data.forEach(ping => {
+                    const tr = document.createElement('tr');
+                    const badgeClass = ping.status === 'reachable' ? 'badge-online' : 'badge-offline';
+                    tr.innerHTML = `
+                        <td class="font-mono" style="opacity: 0.7;">${ping.timestamp}</td>
+                        <td class="font-mono">${ping.ip_address}</td>
+                        <td class="font-mono">${ping.avg_latency_ms} ms</td>
+                        <td><span class="badge ${badgeClass}">${ping.status.toUpperCase()}</span></td>
+                    `;
+                    historyPingsBody.appendChild(tr);
+                });
+            } else if (historyPingsBody) {
+                historyPingsBody.innerHTML = `<tr><td colspan="4" style="text-align:center; opacity:0.6;">No ping diagnostics recorded yet.</td></tr>`;
+            }
+        } catch (error) {
+            console.error("Failed to sync history logs:", error);
+        }
+    }
+
+    // Auto-fetch history when clicking the Network History tab
+    const historyNavBtn = document.querySelector('.nav-item[data-target="history"]');
+    if (historyNavBtn) {
+        historyNavBtn.addEventListener('click', fetchHistory);
+    }
+
+    // Also auto-refresh history streams whenever a background scan finishes
+    if (scanBtn) {
+        scanBtn.addEventListener('click', () => {
+            setTimeout(fetchHistory, 1500); // Give the backend 1.5s to write to SQLite before fetching
+        });
+    }
+
+    // Clear History Button Logic
+    if (clearHistoryBtn) {
+        clearHistoryBtn.addEventListener('click', async () => {
+            if (!confirm("Are you sure you want to wipe all stored scan and ping history from the database?")) return;
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/history/clear`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    fetchHistory(); // Refresh tables instantly to empty state
+                    alert("History successfully cleared.");
+                } else {
+                    alert("Failed to clear history: " + data.error);
+                }
+            } catch (err) {
+                console.error("Clear history error:", err);
+            }
+        });
+    }
+
+    // Export CSV Button Logic (Downloads both or scans CSV)
+    if (exportCsvBtn) {
+        exportCsvBtn.addEventListener('click', () => {
+            // Trigger direct download of the scans CSV report
+            window.location.href = `${API_BASE_URL}/history/export/scans`;
+        });
+    }
     // Execute the fetch immediately when the app loads
     fetchNetworkInfo();
 

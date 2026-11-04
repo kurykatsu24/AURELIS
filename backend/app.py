@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from backend.feature_modules.network_discovery import get_local_network_info, discover_devices
 from backend.feature_modules.diagnostics import run_ping
-from backend.database.db import init_db, log_scan, log_ping
+from backend.database.db import init_db, log_scan, log_ping, get_recent_scans, get_recent_pings, clear_all_history, get_all_scans_for_export, get_all_pings_for_export
 
 app = Flask(__name__)
 # Enable CORS for all routes so the standalone frontend can access the API
@@ -80,7 +80,7 @@ def diagnostic_ping():
             loss=result.get("packet_loss_percent"),
             latency=result.get("avg_latency_ms")
         )
-        
+
         return jsonify({
             "success": True,
             "data": result
@@ -90,6 +90,72 @@ def diagnostic_ping():
             "success": False,
             "error": str(e)
         }), 500
+
+@app.route('/api/history/scans', methods=['GET'])
+def history_scans():
+    try:
+        scans = get_recent_scans()
+        return jsonify({"success": True, "data": scans}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/history/pings', methods=['GET'])
+def history_pings():
+    try:
+        pings = get_recent_pings()
+        return jsonify({"success": True, "data": pings}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/history/clear', methods=['POST'])
+def clear_history():
+    try:
+        clear_all_history()
+        return jsonify({"success": True, "message": "History cleared successfully."}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/history/export/scans', methods=['GET'])
+def export_scans_csv():
+    import csv
+    import io
+    from flask import Response
+    try:
+        scans = get_all_scans_for_export()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Scan ID', 'Timestamp', 'Discovered Count'])
+        for s in scans:
+            writer.writerow([s['id'], s['timestamp'], s['discovered_count']])
+        
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment;filename=network_scans_history.csv"}
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/history/export/pings', methods=['GET'])
+def export_pings_csv():
+    import csv
+    import io
+    from flask import Response
+    try:
+        pings = get_all_pings_for_export()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Timestamp', 'Target IP', 'Status', 'Packet Loss (%)', 'Avg Latency (ms)'])
+        for p in pings:
+            writer.writerow([p['timestamp'], p['ip_address'], p['status'], p['packet_loss_percent'], p['avg_latency_ms']])
+        
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment;filename=ping_diagnostics_history.csv"}
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     # Run the server on port 5000 with debug mode enabled for development

@@ -353,9 +353,64 @@
                         <h2 class="page-title">Network History</h2>
                         <p class="page-description">Records of previous scans and network topology changes.</p>
                     </div>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div class="badge-demo"
+                            style="display: flex; align-items: center; gap: 6px; background: rgba(0, 255, 128, 0.1); color: #00ff80; border: 1px solid rgba(0, 255, 128, 0.3);">
+                            <span class="status-dot online" style="width: 8px; height: 8px;"></span> Live Audit Stream
+                            Active
+                        </div>
+                        <button id="export-csv-btn" class="badge-demo"
+                            style="cursor: pointer; display: flex; align-items: center; gap: 6px; border: none; background: var(--color-pink); color: var(--color-bg-main); font-weight: bold;">
+                            <i data-lucide="download" style="width: 14px; height: 14px;"></i> Export CSV
+                        </button>
+                        <button id="clear-history-btn" class="badge-demo"
+                            style="cursor: pointer; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255, 60, 60, 0.4); background: rgba(255, 60, 60, 0.1); color: #ff6b6b;">
+                            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Clear History
+                        </button>
+                    </div>
                 </header>
-                <div class="panel">
-                    <p>[ Audit Log and Historical Data Placeholder ]</p>
+
+                <div class="dashboard-grid">
+                    <div class="panel table-panel">
+                        <h3 class="panel-title" style="margin-bottom: 16px;">Recent Network Scans (Last 25)</h3>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Scan ID</th>
+                                        <th>Timestamp</th>
+                                        <th>Devices Found</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-scans-body">
+                                    <tr>
+                                        <td colspan="3" style="text-align:center;">Loading scans...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="panel table-panel">
+                        <h3 class="panel-title" style="margin-bottom: 16px;">Recent Ping Diagnostics (Last 25)</h3>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Target IP</th>
+                                        <th>Latency</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-pings-body">
+                                    <tr>
+                                        <td colspan="4" style="text-align:center;">Loading pings...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </section>
 
