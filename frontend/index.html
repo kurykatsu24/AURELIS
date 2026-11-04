@@ -107,7 +107,10 @@
                         <p class="page-description">Monitor your local network, connected devices, and overall network
                             performance.</p>
                     </div>
-                    <div class="badge-demo">Demo Mode</div>
+                    <button id="scan-network-btn" class="badge-demo"
+                        style="cursor: pointer; display: flex; align-items: center; gap: 8px; border: none;">
+                        <i data-lucide="refresh-cw" id="scan-icon" style="width: 14px; height: 14px;"></i> Scan Network
+                    </button>
                 </header>
 
                 <!-- Metric Cards Grid -->
@@ -117,7 +120,7 @@
                             <h4 class="metric-title">Discovered Devices</h4>
                             <div class="metric-icon"><i data-lucide="search"></i></div>
                         </div>
-                        <div class="metric-value">12</div>
+                        <div class="metric-value" id="metric-discovered">--</div>
                         <p class="metric-desc">Identified in latest scan</p>
                     </div>
 
@@ -126,7 +129,7 @@
                             <h4 class="metric-title">Reachable Devices</h4>
                             <div class="metric-icon"><i data-lucide="check-circle-2"></i></div>
                         </div>
-                        <div class="metric-value">10</div>
+                        <div class="metric-value" id="metric-reachable">--</div>
                         <p class="metric-desc">Responded to connectivity check</p>
                     </div>
 
@@ -229,7 +232,7 @@
                                         <th>Status</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="device-table-body">
                                     <tr>
                                         <td>AURELIS-Gateway</td>
                                         <td class="font-mono">192.168.1.1</td>

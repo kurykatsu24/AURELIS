@@ -98,6 +98,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 5. Backend API Integration (Phase 4: Device Discovery)
+    const scanBtn = document.getElementById('scan-network-btn');
+    const metricDiscovered = document.getElementById('metric-discovered');
+    const deviceTableBody = document.getElementById('device-table-body');
+
+    if (scanBtn) {
+        scanBtn.addEventListener('click', async () => {
+            // UI Loading State
+            scanBtn.disabled = true;
+            scanBtn.innerHTML = `<i data-lucide="loader"></i> Scanning...`;
+            lucide.createIcons();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/devices`);
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update the Discovered metric
+                    metricDiscovered.textContent = data.count;
+
+                    // Clear the old placeholder rows
+                    deviceTableBody.innerHTML = '';
+
+                    // Populate table with live devices
+                    data.devices.forEach(device => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${device.hostname}</td>
+                            <td class="font-mono">${device.ip_address}</td>
+                            <td class="font-mono">${device.mac_address}</td>
+                            <td><span class="badge badge-online">Detected</span></td>
+                        `;
+                        deviceTableBody.appendChild(tr);
+                    });
+                } else {
+                    console.error("Scan failed:", data.error);
+                    alert("Scan failed: " + data.error);
+                }
+            } catch (error) {
+                console.error("Error fetching devices:", error);
+                alert("Failed to reach backend API. Is Flask running?");
+            } finally {
+                // Reset UI State
+                scanBtn.disabled = false;
+                scanBtn.innerHTML = `<i data-lucide="refresh-cw"></i> Scan Network`;
+                lucide.createIcons();
+            }
+        });
+    }
+
     // Execute the fetch immediately when the app loads
     fetchNetworkInfo();
 
