@@ -28,4 +28,4 @@ To be completed.
 ## Development Team
 * **Kurt Allen R. Alorro:** Architecture, Frontend, Backend Integration
 * **Duke Salfred B. Bocala:** Network Discovery & Diagnostics Modules
-* **Jazylle Mae B. Senibalo:** Documentation & Reporting
+* **Jazylle Mae B. Senibalo:** Documentation, Reporting & Frontend Performance Optimizations
