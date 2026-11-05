@@ -9,6 +9,9 @@ import platform
 import ipaddress
 import re
 import concurrent.futures
+import subprocess
+import platform
+import re
 
 # Concurrency limit for ping sweeps. Easily adjustable if network bandwidth allows.
 MAX_CONCURRENT_PINGS = 16
@@ -44,11 +47,11 @@ def get_local_network_info():
 
 def get_arp_table():
     """
-    Retrieves the operating system's ARP table cache to map IPs to MAC addresses.
+    Retrieves the OS ARP table cache to map IPs to MAC addresses.
+    Robust against both Windows tabular format and macOS parenthetical format.
     """
     arp_entries = {}
     try:
-        # shell=True removed. check=True ensures failed commands raise CalledProcessError
         result = subprocess.run(
             ["arp", "-a"], 
             capture_output=True, 
@@ -56,15 +59,16 @@ def get_arp_table():
             timeout=5,
             check=True
         )
+        
+        # This regex universally catches IPs (with or without parentheses) and MACs (with hyphens or colons)
         for line in result.stdout.splitlines():
-            match = re.search(r"\(?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\)?\s+(?:at\s+|[\w]+\s+)?([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})", line)
+            match = re.search(r"\(?(\d+\.\d+\.\d+\.\d+)\)?\s+(?:at\s+)?([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})", line)
             if match:
-                ip, mac = match.groups()
-                arp_entries[ip] = mac.lower().replace("-", ":")
+                ip = match.group(1)
+                mac = match.group(2).lower().replace("-", ":")
+                arp_entries[ip] = mac
                 
     except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
-        # Explicitly catching expected subprocess errors so they aren't masked.
-        # FileNotFoundError triggers if 'arp' is somehow missing from the system PATH.
         pass
         
     return arp_entries
@@ -72,8 +76,6 @@ def get_arp_table():
 def discover_devices(timeout=1):
     """
     Identifies reachable devices within the authorized local network.
-    Retrieves available IP addresses, MAC addresses, and hostnames.
-    Returns a list of dictionaries in a consistent format.
     """
     net_info = get_local_network_info()
     network_cidr = net_info["network_cidr"]
@@ -84,11 +86,15 @@ def discover_devices(timeout=1):
     except ValueError:
         return discovered_devices
 
-    # OS-specific ping parameters. Prioritizing Windows (-w is ms), falling back to Unix (-W).
+    # OS-specific ping parameters
     sys_platform = platform.system().lower()
-    param = "-n" if sys_platform == "windows" else "-c"
-    timeout_param = "-w" if sys_platform == "windows" else "-W"
-    timeout_val = str(int(timeout * 1000)) if sys_platform == "windows" else str(timeout)
+    
+    if sys_platform == "windows":
+        param, timeout_param, timeout_val = "-n", "-w", str(int(timeout * 1000))
+    elif sys_platform == "darwin": # macOS
+        param, timeout_param, timeout_val = "-c", "-t", str(timeout)
+    else: # Linux
+        param, timeout_param, timeout_val = "-c", "-W", str(timeout)
 
     def ping_host(ip_str):
         try:
@@ -96,13 +102,11 @@ def discover_devices(timeout=1):
                 ["ping", param, "1", timeout_param, timeout_val, ip_str],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=timeout + 1.0  # Python-level termination if OS ping command hangs
+                timeout=timeout + 1.0 
             )
         except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
             pass
 
-    # Utilizes a bounded worker pool up to MAX_CONCURRENT_PINGS.
-    # It continuously feeds pending pings to available workers instead of executing in batches.
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CONCURRENT_PINGS) as executor:
         executor.map(ping_host, (str(ip) for ip in network.hosts()))
 
@@ -111,13 +115,12 @@ def discover_devices(timeout=1):
     for ip_str, mac in arp_table.items():
         try:
             ip_obj = ipaddress.ip_address(ip_str)
-            # Filter out the network address (.0) and broadcast address (.255)
             if ip_obj in network and ip_obj != network.network_address and ip_obj != network.broadcast_address:
                 discovered_devices.append({
                     "ip_address": ip_str,
                     "mac_address": mac,
                     "hostname": "Unknown",
-                    "status": "online"  # Indicates 'Detected' in ARP cache
+                    "status": "online" 
                 })
         except ValueError:
             continue

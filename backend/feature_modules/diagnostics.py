@@ -31,11 +31,22 @@ def run_ping(ip_address, count=4):
             "max_latency_ms": 0.0
         }
 
-    param = "-n" if platform.system().lower() == "windows" else "-c"
-    command = ["ping", param, str(count), ip_address]
+    # 2. OS-specific ping parameters to prevent hanging on macOS/Linux
+    sys_platform = platform.system().lower()
+    if sys_platform == "windows":
+        param, timeout_param, timeout_val = "-n", "-w", "1000"
+    elif sys_platform == "darwin": # macOS
+        param, timeout_param, timeout_val = "-c", "-t", "1"
+    else: # Linux
+        param, timeout_param, timeout_val = "-c", "-W", "1"
+
+    command = ["ping", param, str(count), timeout_param, timeout_val, ip_address]
+    process_timeout = count * 1.5  # Python-level failsafe timeout
 
     try:
-        output = subprocess.check_output(command, universal_newlines=True, stderr=subprocess.STDOUT)
+        output = subprocess.check_output(command, universal_newlines=True, stderr=subprocess.STDOUT, timeout=process_timeout)
+    except subprocess.TimeoutExpired as e:
+        output = str(e.output) if e.output else ""
     except subprocess.CalledProcessError as e:
         output = e.output
     except Exception as e:
