@@ -339,11 +339,24 @@
                 <header class="page-header">
                     <div>
                         <h2 class="page-title">Network Map</h2>
-                        <p class="page-description">Logical topology of gateway and connected nodes.</p>
+                        <p class="page-description">Interactive logical topology of your gateway and connected nodes.
+                        </p>
                     </div>
+                    <button id="refresh-map-btn" class="badge-demo"
+                        style="cursor: pointer; display: flex; align-items: center; gap: 8px; border: none; background: var(--color-pink); color: var(--color-bg-main); font-weight: bold;">
+                        <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> Redraw Topology
+                    </button>
                 </header>
-                <div class="panel chart-panel">
-                    <p>[ Network Topology Canvas Placeholder ]</p>
+                <div class="panel chart-panel"
+                    style="position: relative; height: 650px; padding: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at center, rgba(234, 123, 148, 0.05) 0%, transparent 70%); border-radius: var(--radius-md);">
+                    <canvas id="network-topology-canvas"
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+
+                    <!-- Tech Noir Hover Tooltip -->
+                    <div id="map-tooltip"
+                        style="position: absolute; display: none; background: var(--glass-bg); backdrop-filter: blur(10px); border: 1px solid var(--color-pink); padding: 12px; border-radius: var(--radius-sm); pointer-events: none; z-index: 10; font-family: var(--font-data); font-size: 12px; color: var(--color-text-primary); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+                        <!-- Injected by JS -->
+                    </div>
                 </div>
             </section>
 
