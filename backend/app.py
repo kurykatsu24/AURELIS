@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from backend.feature_modules.network_discovery import get_local_network_info, discover_devices
 from backend.feature_modules.diagnostics import run_ping
-from backend.database.db import init_db, log_scan, log_ping, get_recent_scans, get_recent_pings, clear_all_history, get_all_scans_for_export, get_all_pings_for_export, get_latest_scan_devices
+from backend.database.db import init_db, log_scan, log_ping, get_recent_scans, get_recent_pings, clear_all_history, get_all_scans_for_export, get_all_pings_for_export, get_latest_scan_devices, get_network_statistics
 
 app = Flask(__name__)
 # Enable CORS for all routes so the standalone frontend can access the API
@@ -214,6 +214,15 @@ def security_alerts():
             })
             
         return jsonify({"success": True, "data": alerts}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/reports/statistics', methods=['GET'])
+def reports_statistics():
+    """Phase 7: Network Statistics Aggregation"""
+    try:
+        stats = get_network_statistics()
+        return jsonify({"success": True, "data": stats}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

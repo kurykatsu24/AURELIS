@@ -629,6 +629,167 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshMapBtn.addEventListener('click', drawNetworkMap);
     }
 
+    // Analytics & Reports Integration (Phase 7)
+    let latencyChartInstance = null;
+    let packetLossChartInstance = null;
+
+    async function loadAnalyticsDashboard() {
+        const statsBody = document.getElementById('statistics-table-body');
+        if (!statsBody) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/reports/statistics`);
+            const result = await response.json();
+
+            if (result.success && result.data.length > 0) {
+                const statsData = result.data;
+
+                // 1. Populate Statistics Table
+                statsBody.innerHTML = '';
+                statsData.forEach(stat => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="font-mono">${stat.ip_address}</td>
+                        <td class="font-mono">${stat.avg_latency} ms</td>
+                        <td class="font-mono">${stat.max_latency} ms</td>
+                        <td class="font-mono">${stat.avg_packet_loss}%</td>
+                    `;
+                    statsBody.appendChild(tr);
+                });
+
+                // Prepare Data for Charts
+                const labels = statsData.map(s => s.ip_address);
+                const avgLatencies = statsData.map(s => s.avg_latency);
+                const packetLosses = statsData.map(s => s.avg_packet_loss);
+
+                // 2. Render Latency Trend Chart (Smooth curve with gradient)
+                const latCtx = document.getElementById('latency-trend-chart').getContext('2d');
+
+                // Create glowing gradient
+                let latGradient = latCtx.createLinearGradient(0, 0, 0, 250);
+                latGradient.addColorStop(0, 'rgba(234, 123, 148, 0.4)'); // var(--color-pink)
+                latGradient.addColorStop(1, 'rgba(234, 123, 148, 0.0)');
+
+                if (latencyChartInstance) latencyChartInstance.destroy();
+                latencyChartInstance = new Chart(latCtx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Avg Latency (ms)',
+                            data: avgLatencies,
+                            borderColor: '#EA7B94',
+                            backgroundColor: latGradient,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4, // Smooth curves like the reference image
+                            pointBackgroundColor: '#08090C',
+                            pointBorderColor: '#EA7B94',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a7a9b2' } },
+                            x: { grid: { display: false }, ticks: { color: '#a7a9b2' } }
+                        }
+                    }
+                });
+
+                // 3. Render Packet Loss Chart (Bar Chart)
+                const lossCtx = document.getElementById('packet-loss-chart').getContext('2d');
+                if (packetLossChartInstance) packetLossChartInstance.destroy();
+                packetLossChartInstance = new Chart(lossCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Packet Loss (%)',
+                            data: packetLosses,
+                            backgroundColor: 'rgba(81, 167, 248, 0.7)', // --color-online
+                            borderColor: '#51A7F8',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a7a9b2' } },
+                            x: { grid: { display: false }, ticks: { color: '#a7a9b2' } }
+                        }
+                    }
+                });
+
+                // Store data globally for the report generator
+                window.currentStatsData = statsData;
+
+            } else {
+                statsBody.innerHTML = `<tr><td colspan="4" style="text-align:center; opacity:0.5;">No ping diagnostics recorded yet. Run a ping test first.</td></tr>`;
+            }
+        } catch (error) {
+            console.error("Failed to load analytics:", error);
+        }
+    }
+
+    // Report Generator Function (Feature 4)
+    document.getElementById('generate-report-btn')?.addEventListener('click', () => {
+        const date = new Date().toLocaleString();
+        const devices = Array.from(deviceTracker.values());
+        const stats = window.currentStatsData || [];
+
+        let report = `====================================================\n`;
+        report += `           AURELIS NETWORK SECURITY REPORT          \n`;
+        report += `====================================================\n`;
+        report += `Generated: ${date}\n\n`;
+
+        report += `--- [ 1. ACTIVE DEVICE INVENTORY ] ---\n`;
+        report += `Total Devices Detected: ${devices.length}\n`;
+        devices.forEach(d => {
+            report += `- [${d.status.toUpperCase()}] ${d.ip_address} | MAC: ${d.mac_address} | Host: ${d.hostname}\n`;
+        });
+        report += `\n`;
+
+        report += `--- [ 2. NETWORK PERFORMANCE SUMMARY ] ---\n`;
+        if (stats.length === 0) {
+            report += `No ping diagnostics data available.\n`;
+        } else {
+            stats.forEach(s => {
+                report += `Target: ${s.ip_address}\n`;
+                report += `  - Tests Conducted: ${s.total_tests}\n`;
+                report += `  - Avg Latency: ${s.avg_latency} ms (Max: ${s.max_latency} ms)\n`;
+                report += `  - Packet Loss: ${s.avg_packet_loss}%\n\n`;
+            });
+        }
+
+        report += `====================================================\n`;
+        report += `End of Report\n`;
+
+        // Trigger file download
+        const blob = new Blob([report], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Aurelis_Network_Report_${new Date().getTime()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    // Auto-fetch analytics when clicking the Reports tab
+    const reportsNavBtn = document.querySelector('.nav-item[data-target="reports"]');
+    if (reportsNavBtn) {
+        reportsNavBtn.addEventListener('click', loadAnalyticsDashboard);
+    }
+
     // Execute the fetch immediately when the app loads
     fetchNetworkInfo();
 
