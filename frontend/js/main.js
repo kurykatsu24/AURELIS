@@ -113,15 +113,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const deviceTableBody = document.getElementById('device-table-body');
     const fullInventoryBody = document.getElementById('full-inventory-body');
 
-    function renderDevices() {
-        // Sort devices in reverse chronological order (newest connections first)
-        const allDevices = Array.from(deviceTracker.values()).sort((a, b) => b.firstSeen - a.firstSeen);
+    // Keyed Node DOM Reconciliation Helper (Fixes innerHTML thrashing)
+    function updateDeviceTable(tbodyElement, devices) {
+        if (!tbodyElement) return;
 
-        const createRow = (device) => {
-            const tr = document.createElement('tr');
-            // Create a clean HH:MM:SS timestamp
+        const existingRows = new Map();
+        Array.from(tbodyElement.children).forEach(row => {
+            const mac = row.getAttribute('data-mac');
+            if (mac) existingRows.set(mac, row);
+        });
+
+        const targetMacs = new Set(devices.map(d => d.mac_address));
+
+        // 1. Remove rows no longer present in target dataset
+        existingRows.forEach((row, mac) => {
+            if (!targetMacs.has(mac)) {
+                row.remove();
+            }
+        });
+
+        // 2. Update existing rows or append new ones in exact array order
+        devices.forEach((device, index) => {
             const timeString = device.firstSeen.toLocaleTimeString([], { hour12: false });
-
             let badgeClass = 'badge-online';
             let displayStatus = 'Detected';
 
@@ -133,26 +146,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayStatus = 'Reachable';
             }
 
-            tr.innerHTML = `
-                <td>${device.hostname}</td>
-                <td class="font-mono">${device.ip_address}</td>
-                <td class="font-mono">${device.mac_address}</td>
-                <td class="font-mono" style="opacity: 0.7;">${timeString}</td>
-                <td><span class="badge ${badgeClass}">${displayStatus}</span></td>
-            `;
-            return tr;
-        };
+            let row = existingRows.get(device.mac_address);
 
-        // Render Overview Preview (Strictly capped at 10 items)
+            if (row) {
+                // Granular cell updating (only mutate changed cells to avoid thrashing)
+                const cells = row.children;
+                if (cells[0].textContent !== device.hostname) cells[0].textContent = device.hostname;
+                if (cells[1].textContent !== device.ip_address) cells[1].textContent = device.ip_address;
+                if (cells[2].textContent !== device.mac_address) cells[2].textContent = device.mac_address;
+                if (cells[3].textContent !== timeString) cells[3].textContent = timeString;
+
+                const badge = cells[4].querySelector('.badge');
+                if (badge) {
+                    const expectedClass = `badge ${badgeClass}`;
+                    if (badge.className !== expectedClass) badge.className = expectedClass;
+                    if (badge.textContent !== displayStatus) badge.textContent = displayStatus;
+                }
+
+                // Ensure row position matches array order
+                if (tbodyElement.children[index] !== row) {
+                    tbodyElement.insertBefore(row, tbodyElement.children[index] || null);
+                }
+            } else {
+                // Construct new keyed row
+                row = document.createElement('tr');
+                row.setAttribute('data-mac', device.mac_address);
+                row.innerHTML = `
+                    <td>${device.hostname}</td>
+                    <td class="font-mono">${device.ip_address}</td>
+                    <td class="font-mono">${device.mac_address}</td>
+                    <td class="font-mono" style="opacity: 0.7;">${timeString}</td>
+                    <td><span class="badge ${badgeClass}">${displayStatus}</span></td>
+                `;
+                tbodyElement.insertBefore(row, tbodyElement.children[index] || null);
+            }
+        });
+    }
+
+    function renderDevices() {
+        // Sort devices in reverse chronological order (newest connections first)
+        const allDevices = Array.from(deviceTracker.values()).sort((a, b) => b.firstSeen - a.firstSeen);
+
+        // Render Overview Preview (Strictly capped at 10 items) using keyed reconciliation
         if (deviceTableBody) {
-            deviceTableBody.innerHTML = '';
-            allDevices.slice(0, 10).forEach(device => deviceTableBody.appendChild(createRow(device)));
+            updateDeviceTable(deviceTableBody, allDevices.slice(0, 10));
         }
 
-        // Render Full Device Inventory Tab (Uncapped, shows all devices)
+        // Render Full Device Inventory Tab (Uncapped, shows all devices) using keyed reconciliation
         if (fullInventoryBody) {
-            fullInventoryBody.innerHTML = '';
-            allDevices.forEach(device => fullInventoryBody.appendChild(createRow(device)));
+            updateDeviceTable(fullInventoryBody, allDevices);
         }
 
         // Dynamically Calculate & Render Device Status Progress Bars
