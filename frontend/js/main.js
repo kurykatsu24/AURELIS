@@ -113,15 +113,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const deviceTableBody = document.getElementById('device-table-body');
     const fullInventoryBody = document.getElementById('full-inventory-body');
 
-    function renderDevices() {
-        // Sort devices in reverse chronological order (newest connections first)
-        const allDevices = Array.from(deviceTracker.values()).sort((a, b) => b.firstSeen - a.firstSeen);
+    // Keyed Node DOM Reconciliation Helper (Fixes innerHTML thrashing)
+    function updateDeviceTable(tbodyElement, devices) {
+        if (!tbodyElement) return;
 
-        const createRow = (device) => {
-            const tr = document.createElement('tr');
-            // Create a clean HH:MM:SS timestamp
+        const existingRows = new Map();
+        Array.from(tbodyElement.children).forEach(row => {
+            const mac = row.getAttribute('data-mac');
+            if (mac) existingRows.set(mac, row);
+        });
+
+        const targetMacs = new Set(devices.map(d => d.mac_address));
+
+        // 1. Remove rows no longer present in target dataset
+        existingRows.forEach((row, mac) => {
+            if (!targetMacs.has(mac)) {
+                row.remove();
+            }
+        });
+
+        // 2. Update existing rows or append new ones in exact array order
+        devices.forEach((device, index) => {
             const timeString = device.firstSeen.toLocaleTimeString([], { hour12: false });
-
             let badgeClass = 'badge-online';
             let displayStatus = 'Detected';
 
@@ -133,26 +146,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayStatus = 'Reachable';
             }
 
-            tr.innerHTML = `
-                <td>${device.hostname}</td>
-                <td class="font-mono">${device.ip_address}</td>
-                <td class="font-mono">${device.mac_address}</td>
-                <td class="font-mono" style="opacity: 0.7;">${timeString}</td>
-                <td><span class="badge ${badgeClass}">${displayStatus}</span></td>
-            `;
-            return tr;
-        };
+            let row = existingRows.get(device.mac_address);
 
-        // Render Overview Preview (Strictly capped at 10 items)
+            if (row) {
+                // Granular cell updating (only mutate changed cells to avoid thrashing)
+                const cells = row.children;
+                if (cells[0].textContent !== device.hostname) cells[0].textContent = device.hostname;
+                if (cells[1].textContent !== device.ip_address) cells[1].textContent = device.ip_address;
+                if (cells[2].textContent !== device.mac_address) cells[2].textContent = device.mac_address;
+                if (cells[3].textContent !== timeString) cells[3].textContent = timeString;
+
+                const badge = cells[4].querySelector('.badge');
+                if (badge) {
+                    const expectedClass = `badge ${badgeClass}`;
+                    if (badge.className !== expectedClass) badge.className = expectedClass;
+                    if (badge.textContent !== displayStatus) badge.textContent = displayStatus;
+                }
+
+                // Ensure row position matches array order
+                if (tbodyElement.children[index] !== row) {
+                    tbodyElement.insertBefore(row, tbodyElement.children[index] || null);
+                }
+            } else {
+                // Construct new keyed row
+                row = document.createElement('tr');
+                row.setAttribute('data-mac', device.mac_address);
+                row.innerHTML = `
+                    <td>${device.hostname}</td>
+                    <td class="font-mono">${device.ip_address}</td>
+                    <td class="font-mono">${device.mac_address}</td>
+                    <td class="font-mono" style="opacity: 0.7;">${timeString}</td>
+                    <td><span class="badge ${badgeClass}">${displayStatus}</span></td>
+                `;
+                tbodyElement.insertBefore(row, tbodyElement.children[index] || null);
+            }
+        });
+    }
+
+    function renderDevices() {
+        // Sort devices in reverse chronological order (newest connections first)
+        const allDevices = Array.from(deviceTracker.values()).sort((a, b) => b.firstSeen - a.firstSeen);
+
+        // Render Overview Preview (Strictly capped at 10 items) using keyed reconciliation
         if (deviceTableBody) {
-            deviceTableBody.innerHTML = '';
-            allDevices.slice(0, 10).forEach(device => deviceTableBody.appendChild(createRow(device)));
+            updateDeviceTable(deviceTableBody, allDevices.slice(0, 10));
         }
 
-        // Render Full Device Inventory Tab (Uncapped, shows all devices)
+        // Render Full Device Inventory Tab (Uncapped, shows all devices) using keyed reconciliation
         if (fullInventoryBody) {
-            fullInventoryBody.innerHTML = '';
-            allDevices.forEach(device => fullInventoryBody.appendChild(createRow(device)));
+            updateDeviceTable(fullInventoryBody, allDevices);
         }
 
         // Dynamically Calculate & Render Device Status Progress Bars
@@ -189,50 +231,82 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Network Scan Execution
-    if (scanBtn) {
-        scanBtn.addEventListener('click', async () => {
+    // Network Scan Fetch & Execution Logic
+    async function executeScan() {
+        if (scanBtn) {
             scanBtn.disabled = true;
             scanBtn.innerHTML = `<i data-lucide="loader"></i> Scanning...`;
             lucide.createIcons();
+        }
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/devices`);
-                const data = await response.json();
+        try {
+            const response = await fetch(`${API_BASE_URL}/devices`);
+            const data = await response.json();
 
-                if (data.success) {
-                    data.devices.forEach(device => {
-                        if (!deviceTracker.has(device.mac_address)) {
-                            // Stamp entirely new devices with a creation timestamp
-                            device.firstSeen = new Date();
-                            deviceTracker.set(device.mac_address, device);
-                        } else {
-                            // Update dynamic data (like IP changes) but retain original timestamp
-                            const existing = deviceTracker.get(device.mac_address);
-                            existing.ip_address = device.ip_address;
-                            // Only update status if the device hasn't been explicitly confirmed 'unreachable' by a targeted ping
-                            if (existing.status !== 'unreachable') {
-                                existing.status = device.status;
-                            }
+            if (data.success) {
+                data.devices.forEach(device => {
+                    if (!deviceTracker.has(device.mac_address)) {
+                        // Stamp entirely new devices with a creation timestamp
+                        device.firstSeen = new Date();
+                        deviceTracker.set(device.mac_address, device);
+                    } else {
+                        // Update dynamic data (like IP changes) but retain original timestamp
+                        const existing = deviceTracker.get(device.mac_address);
+                        existing.ip_address = device.ip_address;
+                        // Only update status if the device hasn't been explicitly confirmed 'unreachable' by a targeted ping
+                        if (existing.status !== 'unreachable') {
+                            existing.status = device.status;
                         }
-                    });
+                    }
+                });
 
-                    if (metricDiscovered) metricDiscovered.textContent = deviceTracker.size;
-                    renderDevices();
-                } else {
-                    console.error("Scan failed:", data.error);
-                    alert("Scan failed: " + data.error);
-                }
-            } catch (error) {
-                console.error("Error fetching devices:", error);
-                alert("Failed to reach backend API. Is Flask running?");
-            } finally {
+                if (metricDiscovered) metricDiscovered.textContent = deviceTracker.size;
+                renderDevices();
+            } else {
+                console.error("Scan failed:", data.error);
+            }
+        } catch (error) {
+            console.error("Error fetching devices:", error);
+        } finally {
+            if (scanBtn) {
                 scanBtn.disabled = false;
                 scanBtn.innerHTML = `<i data-lucide="refresh-cw"></i> Scan Network`;
                 lucide.createIcons();
             }
-        });
+        }
     }
+
+    if (scanBtn) {
+        scanBtn.addEventListener('click', executeScan);
+    }
+
+    // Visibility-Aware Polling Loop (Self-scheduling setTimeout chain)
+    let pollTimerId = null;
+
+    async function pollNetworkState() {
+        if (pollTimerId) {
+            clearTimeout(pollTimerId);
+            pollTimerId = null;
+        }
+
+        const delaySetting = localStorage.getItem('aurelis-scan-interval') || '15000';
+        const delay = parseInt(delaySetting, 10);
+
+        if (!document.hidden && delay > 0) {
+            await executeScan();
+        }
+
+        if (delay > 0) {
+            pollTimerId = setTimeout(pollNetworkState, delay);
+        }
+    }
+
+    // Pause / Resume polling dynamically based on Page Visibility API
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            pollNetworkState();
+        }
+    });
 
     // Targeted Ping Execution (Syncs results back to Tracker)
     const runPingBtn = document.getElementById('run-ping-btn');
@@ -799,21 +873,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const intervalSelect = document.getElementById('setting-interval');
     const factoryResetBtn = document.getElementById('factory-reset-btn');
 
-    // Global variable to hold our scan interval ID so we can clear it when changed
-    window.aurelisScanInterval = null;
-
-    function applyScanInterval(ms) {
-        // Clear the existing interval if it exists
-        if (window.aurelisScanInterval) clearInterval(window.aurelisScanInterval);
-
-        const delay = parseInt(ms, 10);
-        if (delay > 0) {
-            window.aurelisScanInterval = setInterval(() => {
-                if (scanBtn && !scanBtn.disabled) scanBtn.click();
-            }, delay);
-        }
-    }
-
     // Initialize Settings from Local Storage
     if (themeSelect && intervalSelect) {
         // Load saved theme
@@ -823,9 +882,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load saved interval (default 15s)
         const currentInterval = localStorage.getItem('aurelis-scan-interval') || '15000';
         intervalSelect.value = currentInterval;
-
-        // Start the background scanner with the saved preference
-        applyScanInterval(currentInterval);
 
         // Listen for Theme Changes via Dropdown
         themeSelect.addEventListener('change', (e) => {
@@ -845,7 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
         intervalSelect.addEventListener('change', (e) => {
             const newInterval = e.target.value;
             localStorage.setItem('aurelis-scan-interval', newInterval);
-            applyScanInterval(newInterval);
+            pollNetworkState(); // Re-trigger polling chain with updated interval
         });
     }
 
@@ -889,10 +945,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Execute the fetch immediately when the app loads
     fetchNetworkInfo();
 
-    // Auto-trigger network scan on initial page load AND every 15 seconds
+    // Auto-trigger visibility-aware network scan polling on initial page load
     window.addEventListener('load', () => {
-        if (scanBtn) {
-            scanBtn.click(); // Initial scan
-        }
+        pollNetworkState();
     });
 });
