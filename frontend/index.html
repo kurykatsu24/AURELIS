@@ -430,11 +430,21 @@
                 <header class="page-header">
                     <div>
                         <h2 class="page-title">Security Recommendations</h2>
-                        <p class="page-description">Observations and actions based on network diagnostics.</p>
+                        <p class="page-description">Automated threat modeling and network health observations.</p>
                     </div>
+                    <button id="refresh-security-btn" class="badge-demo"
+                        style="cursor: pointer; display: flex; align-items: center; gap: 8px; border: none; background: var(--color-pink); color: var(--color-bg-main); font-weight: bold;">
+                        <i data-lucide="shield-check" style="width: 14px; height: 14px;"></i> Run Security Audit
+                    </button>
                 </header>
-                <div class="panel">
-                    <p>[ Security Rule Engine and Alert Cards Placeholder ]</p>
+
+                <div class="panel" style="background: transparent; border: none; padding: 0;">
+                    <div id="security-alerts-container" style="display: flex; flex-direction: column; gap: 16px;">
+                        <!-- Alert Cards Injected Here by JS -->
+                        <div class="panel" style="text-align: center; opacity: 0.6; padding: 40px;">
+                            <i data-lucide="loader" class="icon-sm"></i> Loading security analysis...
+                        </div>
+                    </div>
                 </div>
             </section>
 

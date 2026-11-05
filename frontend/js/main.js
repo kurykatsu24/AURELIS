@@ -376,6 +376,92 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = `${API_BASE_URL}/history/export/scans`;
         });
     }
+
+    // Security Recommendations Engine Integration
+    const securityAlertsContainer = document.getElementById('security-alerts-container');
+    const refreshSecurityBtn = document.getElementById('refresh-security-btn');
+
+    async function fetchSecurityAlerts() {
+        if (!securityAlertsContainer) return;
+
+        if (refreshSecurityBtn) {
+            refreshSecurityBtn.innerHTML = `<i data-lucide="loader"></i> Auditing...`;
+            lucide.createIcons();
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/security/alerts`);
+            const data = await response.json();
+
+            if (data.success) {
+                securityAlertsContainer.innerHTML = '';
+
+                data.data.forEach(alert => {
+                    // Map the threat type to specific Luxury Tech CSS colors
+                    let borderColor = 'rgba(255, 255, 255, 0.1)';
+                    let iconColor = '#fff';
+
+                    if (alert.type === 'critical') {
+                        borderColor = 'rgba(255, 60, 60, 0.5)';
+                        iconColor = '#ff3c3c';
+                    } else if (alert.type === 'warning') {
+                        borderColor = 'rgba(255, 170, 0, 0.5)';
+                        iconColor = '#ffaa00';
+                    } else if (alert.type === 'success') {
+                        borderColor = 'rgba(0, 255, 128, 0.5)';
+                        iconColor = '#00ff80';
+                    } else if (alert.type === 'info') {
+                        borderColor = 'rgba(0, 150, 255, 0.5)';
+                        iconColor = '#0096ff';
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = 'panel';
+                    card.style.borderLeft = `4px solid ${iconColor}`;
+                    card.style.display = 'flex';
+                    card.style.gap = '20px';
+                    card.style.alignItems = 'flex-start';
+
+                    card.innerHTML = `
+                        <div style="color: ${iconColor}; padding-top: 4px;">
+                            <i data-lucide="${alert.icon}" style="width: 24px; height: 24px;"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <h3 style="margin: 0; font-size: 1.1rem;">${alert.title}</h3>
+                                <span class="font-mono" style="font-size: 0.75rem; opacity: 0.5;">${alert.id}</span>
+                            </div>
+                            <p style="margin: 0 0 12px 0; opacity: 0.8; line-height: 1.5;">${alert.message}</p>
+                            <div style="background: rgba(0,0,0,0.2); padding: 10px 14px; border-radius: 6px; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.05);">
+                                <strong style="color: var(--color-pink);">RECOMMENDATION:</strong> ${alert.recommendation}
+                            </div>
+                        </div>
+                    `;
+                    securityAlertsContainer.appendChild(card);
+                });
+                lucide.createIcons();
+            }
+        } catch (error) {
+            console.error("Failed to fetch security alerts:", error);
+            securityAlertsContainer.innerHTML = `<div class="panel" style="color: #ff3c3c;">Failed to connect to Security Engine.</div>`;
+        } finally {
+            if (refreshSecurityBtn) {
+                refreshSecurityBtn.innerHTML = `<i data-lucide="shield-check"></i> Run Security Audit`;
+                lucide.createIcons();
+            }
+        }
+    }
+
+    // Auto-fetch alerts when clicking the Security tab
+    const securityNavBtn = document.querySelector('.nav-item[data-target="security"]');
+    if (securityNavBtn) {
+        securityNavBtn.addEventListener('click', fetchSecurityAlerts);
+    }
+
+    if (refreshSecurityBtn) {
+        refreshSecurityBtn.addEventListener('click', fetchSecurityAlerts);
+    }
+
     // Execute the fetch immediately when the app loads
     fetchNetworkInfo();
 
