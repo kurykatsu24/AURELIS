@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from backend.feature_modules.network_discovery import get_local_network_info, discover_devices
 from backend.feature_modules.diagnostics import run_ping
-from backend.database.db import init_db, log_scan, log_ping, get_recent_scans, get_recent_pings, clear_all_history, get_all_scans_for_export, get_all_pings_for_export
+from backend.database.db import init_db, log_scan, log_ping, get_recent_scans, get_recent_pings, clear_all_history, get_all_scans_for_export, get_all_pings_for_export, get_latest_scan_devices, get_network_statistics
 
 app = Flask(__name__)
 # Enable CORS for all routes so the standalone frontend can access the API
@@ -154,6 +154,75 @@ def export_pings_csv():
             mimetype="text/csv",
             headers={"Content-Disposition": "attachment;filename=ping_diagnostics_history.csv"}
         )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/security/alerts', methods=['GET'])
+def security_alerts():
+    """Phase 6: Automated Security & Health Rule Engine"""
+    try:
+        devices = get_latest_scan_devices()
+        pings = get_recent_pings(limit=10)
+        
+        alerts = []
+        
+        # Rule 1: Device Authentication / Unknown Nodes
+        unknown_count = sum(1 for d in devices if d.get('hostname', 'Unknown') == 'Unknown')
+        if unknown_count > 0:
+            alerts.append({
+                "id": "SEC-001",
+                "type": "warning",
+                "icon": "shield-alert",
+                "title": "Unrecognized Devices on Network",
+                "message": f"Detected {unknown_count} device(s) with unresolved hostnames.",
+                "recommendation": "Review the Device Inventory and verify these MAC addresses belong to trusted personal hardware."
+            })
+            
+        # Rule 2: Reachability / Dead Nodes
+        unreachable_count = sum(1 for d in devices if d.get('status') in ['unreachable', 'offline', 'error'])
+        if unreachable_count > 0:
+            alerts.append({
+                "id": "SEC-002",
+                "type": "info",
+                "icon": "wifi-off",
+                "title": "Offline or Stealth Nodes",
+                "message": f"{unreachable_count} previously discovered device(s) are currently unreachable.",
+                "recommendation": "If these devices should be active, verify their power state. Otherwise, they may be battery-saving mobile devices."
+            })
+            
+        # Rule 3: High Latency Check
+        high_latency = [p for p in pings if p.get('avg_latency_ms', 0) > 100]
+        if high_latency:
+            alerts.append({
+                "id": "SEC-003",
+                "type": "critical",
+                "icon": "activity",
+                "title": "Degraded Network Performance",
+                "message": "Detected latency over 100ms in recent ping diagnostic tests.",
+                "recommendation": "Check for bandwidth hogs, ISP throttling, or excessive wireless interference."
+            })
+            
+        # If no issues are found, return a clean bill of health
+        if not alerts:
+            alerts.append({
+                "id": "SEC-OK",
+                "type": "success",
+                "icon": "shield-check",
+                "title": "Network Secure",
+                "message": "No immediate security vulnerabilities or performance anomalies detected.",
+                "recommendation": "Continue standard baseline monitoring."
+            })
+            
+        return jsonify({"success": True, "data": alerts}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/reports/statistics', methods=['GET'])
+def reports_statistics():
+    """Phase 7: Network Statistics Aggregation"""
+    try:
+        stats = get_network_statistics()
+        return jsonify({"success": True, "data": stats}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

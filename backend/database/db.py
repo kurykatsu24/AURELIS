@@ -72,3 +72,35 @@ def get_all_pings_for_export():
         cursor = conn.cursor()
         cursor.execute("SELECT timestamp, ip_address, status, packet_loss_percent, avg_latency_ms FROM ping_logs ORDER BY timestamp DESC")
         return [dict(row) for row in cursor.fetchall()]
+
+def get_latest_scan_devices():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        # Find the ID of the most recent scan
+        cursor.execute("SELECT id FROM network_scans ORDER BY timestamp DESC LIMIT 1")
+        row = cursor.fetchone()
+        if not row:
+            return []
+        
+        # Fetch the devices linked to that specific scan ID
+        scan_id = row['id']
+        cursor.execute("SELECT ip_address, mac_address, hostname, status FROM device_history WHERE scan_id = ?", (scan_id,))
+        return [dict(r) for r in cursor.fetchall()]
+
+def get_network_statistics():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        # Aggregates ping data grouping by IP Address
+        cursor.execute("""
+            SELECT ip_address, 
+                   COUNT(id) as total_tests,
+                   ROUND(AVG(avg_latency_ms), 2) as avg_latency, 
+                   ROUND(MAX(avg_latency_ms), 2) as max_latency, 
+                   ROUND(AVG(packet_loss_percent), 2) as avg_packet_loss 
+            FROM ping_logs 
+            GROUP BY ip_address
+            ORDER BY avg_latency DESC
+        """)
+        return [dict(row) for row in cursor.fetchall()]

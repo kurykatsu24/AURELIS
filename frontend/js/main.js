@@ -177,6 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update Dashboard Overview Metric Card
             if (metricReachable) metricReachable.textContent = reachableCount;
+
+            // (Add this inside renderDevices, right after it updates metricReachable)
+            if (document.getElementById('map').classList.contains('active')) {
+                drawNetworkMap();
+            }
         }
     }
 
@@ -376,6 +381,415 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = `${API_BASE_URL}/history/export/scans`;
         });
     }
+
+    // Security Recommendations Engine Integration
+    const securityAlertsContainer = document.getElementById('security-alerts-container');
+    const refreshSecurityBtn = document.getElementById('refresh-security-btn');
+
+    async function fetchSecurityAlerts() {
+        if (!securityAlertsContainer) return;
+
+        if (refreshSecurityBtn) {
+            refreshSecurityBtn.innerHTML = `<i data-lucide="loader"></i> Auditing...`;
+            lucide.createIcons();
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/security/alerts`);
+            const data = await response.json();
+
+            if (data.success) {
+                securityAlertsContainer.innerHTML = '';
+
+                data.data.forEach(alert => {
+                    // Map the threat type to specific Luxury Tech CSS colors
+                    let borderColor = 'rgba(255, 255, 255, 0.1)';
+                    let iconColor = '#fff';
+
+                    if (alert.type === 'critical') {
+                        borderColor = 'rgba(255, 60, 60, 0.5)';
+                        iconColor = '#ff3c3c';
+                    } else if (alert.type === 'warning') {
+                        borderColor = 'rgba(255, 170, 0, 0.5)';
+                        iconColor = '#ffaa00';
+                    } else if (alert.type === 'success') {
+                        borderColor = 'rgba(0, 255, 128, 0.5)';
+                        iconColor = '#00ff80';
+                    } else if (alert.type === 'info') {
+                        borderColor = 'rgba(0, 150, 255, 0.5)';
+                        iconColor = '#0096ff';
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = 'panel';
+                    card.style.borderLeft = `4px solid ${iconColor}`;
+                    card.style.display = 'flex';
+                    card.style.gap = '20px';
+                    card.style.alignItems = 'flex-start';
+
+                    card.innerHTML = `
+                        <div style="color: ${iconColor}; padding-top: 4px;">
+                            <i data-lucide="${alert.icon}" style="width: 24px; height: 24px;"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <h3 style="margin: 0; font-size: 1.1rem;">${alert.title}</h3>
+                                <span class="font-mono" style="font-size: 0.75rem; opacity: 0.5;">${alert.id}</span>
+                            </div>
+                            <p style="margin: 0 0 12px 0; opacity: 0.8; line-height: 1.5;">${alert.message}</p>
+                            <div style="background: rgba(0,0,0,0.2); padding: 10px 14px; border-radius: 6px; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.05);">
+                                <strong style="color: var(--color-pink);">RECOMMENDATION:</strong> ${alert.recommendation}
+                            </div>
+                        </div>
+                    `;
+                    securityAlertsContainer.appendChild(card);
+                });
+                lucide.createIcons();
+            }
+        } catch (error) {
+            console.error("Failed to fetch security alerts:", error);
+            securityAlertsContainer.innerHTML = `<div class="panel" style="color: #ff3c3c;">Failed to connect to Security Engine.</div>`;
+        } finally {
+            if (refreshSecurityBtn) {
+                refreshSecurityBtn.innerHTML = `<i data-lucide="shield-check"></i> Run Security Audit`;
+                lucide.createIcons();
+            }
+        }
+    }
+
+    // Auto-fetch alerts when clicking the Security tab
+    const securityNavBtn = document.querySelector('.nav-item[data-target="security"]');
+    if (securityNavBtn) {
+        securityNavBtn.addEventListener('click', fetchSecurityAlerts);
+    }
+
+    if (refreshSecurityBtn) {
+        refreshSecurityBtn.addEventListener('click', fetchSecurityAlerts);
+    }
+
+    // Network Topology Engine (Phase 7: Network Map)
+    const mapCanvas = document.getElementById('network-topology-canvas');
+    const mapTooltip = document.getElementById('map-tooltip');
+    const refreshMapBtn = document.getElementById('refresh-map-btn');
+    let mapNodes = []; // Stores node coordinates for hover detection
+
+    function drawNetworkMap() {
+        if (!mapCanvas) return;
+        const ctx = mapCanvas.getContext('2d');
+        const parent = mapCanvas.parentElement;
+
+        // Dynamically size canvas to fit the panel perfectly
+        mapCanvas.width = parent.clientWidth;
+        mapCanvas.height = parent.clientHeight;
+
+        const centerX = mapCanvas.width / 2;
+        const centerY = mapCanvas.height / 2;
+
+        ctx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+
+        const allDevices = Array.from(deviceTracker.values());
+        if (allDevices.length === 0) {
+            ctx.fillStyle = '#a7a9b2'; // --color-text-secondary
+            ctx.font = '14px "Space Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('Awaiting network scan data...', centerX, centerY);
+            return;
+        }
+
+        // Identify Gateway (assuming typical .1 subnet router) and Clients
+        let gateway = allDevices.find(d => d.ip_address.endsWith('.1'));
+        let clients = allDevices.filter(d => !d.ip_address.endsWith('.1'));
+
+        if (!gateway) {
+            gateway = { ip_address: 'Gateway', hostname: 'Router', status: 'reachable', mac_address: 'N/A' };
+        } else {
+            clients = clients.filter(c => c.mac_address !== gateway.mac_address); // Prevent duplication
+        }
+
+        mapNodes = [];
+
+        // Match your CSS Theme Colors
+        const colorPink = '#EA7B94';
+        const colorOnline = '#51A7F8';
+        const colorOffline = '#91636d';
+        const colorLine = 'rgba(255, 255, 255, 0.08)';
+
+        // Draw Central Gateway Node
+        mapNodes.push({ x: centerX, y: centerY, radius: 22, device: gateway, color: colorPink });
+
+        // Calculate orbit for connected devices
+        const radius = Math.min(centerX, centerY) - 90;
+        const angleStep = (Math.PI * 2) / Math.max(clients.length, 1);
+
+        // Draw connecting lines and calculate client coordinates
+        clients.forEach((client, index) => {
+            const angle = index * angleStep;
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
+
+            const isOnline = (client.status === 'reachable' || client.status === 'online');
+            const nodeColor = isOnline ? colorOnline : colorOffline;
+
+            mapNodes.push({ x, y, radius: 10, device: client, color: nodeColor });
+
+            // Draw Line to Center
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = colorLine;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        });
+
+        // Draw Nodes on top of lines
+        mapNodes.forEach(node => {
+            // Tech Noir Glow Effect
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = node.color;
+
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+            ctx.fillStyle = node.color;
+            ctx.fill();
+
+            ctx.shadowBlur = 0; // Reset shadow for text clarity
+
+            // Node Label (Last octet of IP or short hostname)
+            ctx.fillStyle = '#F3F0ED'; // --color-text-primary
+            ctx.font = '11px "Space Mono", monospace';
+            ctx.textAlign = 'center';
+
+            let label = node.device.ip_address.split('.').pop();
+            if (node.device === gateway) label = 'GW';
+
+            ctx.fillText(label, node.x, node.y + node.radius + 16);
+        });
+    }
+
+    // Interactivity: Hover Tooltip Detection
+    if (mapCanvas) {
+        mapCanvas.addEventListener('mousemove', (e) => {
+            const rect = mapCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            let hoveredNode = null;
+
+            // Check collision with any node
+            for (let node of mapNodes) {
+                const dx = mouseX - node.x;
+                const dy = mouseY - node.y;
+                if (Math.sqrt(dx * dx + dy * dy) < node.radius + 8) { // +8px padding for easier hovering
+                    hoveredNode = node;
+                    break;
+                }
+            }
+
+            if (hoveredNode) {
+                mapCanvas.style.cursor = 'crosshair';
+                mapTooltip.style.display = 'block';
+                // Keep tooltip bound within the panel
+                const tooltipX = Math.min(mouseX + 15, mapCanvas.width - 200);
+                const tooltipY = Math.min(mouseY + 15, mapCanvas.height - 100);
+
+                mapTooltip.style.left = tooltipX + 'px';
+                mapTooltip.style.top = tooltipY + 'px';
+                mapTooltip.innerHTML = `
+                    <strong style="color: ${hoveredNode.color}; font-size: 14px;">${hoveredNode.device.hostname}</strong><br>
+                    <div style="margin-top: 6px; opacity: 0.8;">
+                        IP: ${hoveredNode.device.ip_address}<br>
+                        MAC: ${hoveredNode.device.mac_address || 'N/A'}<br>
+                        Status: ${hoveredNode.device.status.toUpperCase()}
+                    </div>
+                `;
+            } else {
+                mapCanvas.style.cursor = 'default';
+                mapTooltip.style.display = 'none';
+            }
+        });
+
+        // Redraw dynamically if window resizes
+        window.addEventListener('resize', () => {
+            if (document.getElementById('map').classList.contains('active')) {
+                drawNetworkMap();
+            }
+        });
+    }
+
+    // Connect to Navigation Clicks
+    const mapNavBtn = document.querySelector('.nav-item[data-target="map"]');
+    if (mapNavBtn) {
+        mapNavBtn.addEventListener('click', () => {
+            // 50ms delay allows CSS display:block to trigger so canvas can read clientWidth
+            setTimeout(drawNetworkMap, 50);
+        });
+    }
+
+    if (refreshMapBtn) {
+        refreshMapBtn.addEventListener('click', drawNetworkMap);
+    }
+
+    // Analytics & Reports Integration (Phase 7)
+    let latencyChartInstance = null;
+    let packetLossChartInstance = null;
+
+    async function loadAnalyticsDashboard() {
+        const statsBody = document.getElementById('statistics-table-body');
+        if (!statsBody) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/reports/statistics`);
+            const result = await response.json();
+
+            if (result.success && result.data.length > 0) {
+                const statsData = result.data;
+
+                // 1. Populate Statistics Table
+                statsBody.innerHTML = '';
+                statsData.forEach(stat => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="font-mono">${stat.ip_address}</td>
+                        <td class="font-mono">${stat.avg_latency} ms</td>
+                        <td class="font-mono">${stat.max_latency} ms</td>
+                        <td class="font-mono">${stat.avg_packet_loss}%</td>
+                    `;
+                    statsBody.appendChild(tr);
+                });
+
+                // Prepare Data for Charts
+                const labels = statsData.map(s => s.ip_address);
+                const avgLatencies = statsData.map(s => s.avg_latency);
+                const packetLosses = statsData.map(s => s.avg_packet_loss);
+
+                // 2. Render Latency Trend Chart (Smooth curve with gradient)
+                const latCtx = document.getElementById('latency-trend-chart').getContext('2d');
+
+                // Create glowing gradient
+                let latGradient = latCtx.createLinearGradient(0, 0, 0, 250);
+                latGradient.addColorStop(0, 'rgba(234, 123, 148, 0.4)'); // var(--color-pink)
+                latGradient.addColorStop(1, 'rgba(234, 123, 148, 0.0)');
+
+                if (latencyChartInstance) latencyChartInstance.destroy();
+                latencyChartInstance = new Chart(latCtx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Avg Latency (ms)',
+                            data: avgLatencies,
+                            borderColor: '#EA7B94',
+                            backgroundColor: latGradient,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4, // Smooth curves like the reference image
+                            pointBackgroundColor: '#08090C',
+                            pointBorderColor: '#EA7B94',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a7a9b2' } },
+                            x: { grid: { display: false }, ticks: { color: '#a7a9b2' } }
+                        }
+                    }
+                });
+
+                // 3. Render Packet Loss Chart (Bar Chart)
+                const lossCtx = document.getElementById('packet-loss-chart').getContext('2d');
+                if (packetLossChartInstance) packetLossChartInstance.destroy();
+                packetLossChartInstance = new Chart(lossCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Packet Loss (%)',
+                            data: packetLosses,
+                            backgroundColor: 'rgba(81, 167, 248, 0.7)', // --color-online
+                            borderColor: '#51A7F8',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a7a9b2' } },
+                            x: { grid: { display: false }, ticks: { color: '#a7a9b2' } }
+                        }
+                    }
+                });
+
+                // Store data globally for the report generator
+                window.currentStatsData = statsData;
+
+            } else {
+                statsBody.innerHTML = `<tr><td colspan="4" style="text-align:center; opacity:0.5;">No ping diagnostics recorded yet. Run a ping test first.</td></tr>`;
+            }
+        } catch (error) {
+            console.error("Failed to load analytics:", error);
+        }
+    }
+
+    // Report Generator Function (Feature 4)
+    document.getElementById('generate-report-btn')?.addEventListener('click', () => {
+        const date = new Date().toLocaleString();
+        const devices = Array.from(deviceTracker.values());
+        const stats = window.currentStatsData || [];
+
+        let report = `====================================================\n`;
+        report += `           AURELIS NETWORK SECURITY REPORT          \n`;
+        report += `====================================================\n`;
+        report += `Generated: ${date}\n\n`;
+
+        report += `--- [ 1. ACTIVE DEVICE INVENTORY ] ---\n`;
+        report += `Total Devices Detected: ${devices.length}\n`;
+        devices.forEach(d => {
+            report += `- [${d.status.toUpperCase()}] ${d.ip_address} | MAC: ${d.mac_address} | Host: ${d.hostname}\n`;
+        });
+        report += `\n`;
+
+        report += `--- [ 2. NETWORK PERFORMANCE SUMMARY ] ---\n`;
+        if (stats.length === 0) {
+            report += `No ping diagnostics data available.\n`;
+        } else {
+            stats.forEach(s => {
+                report += `Target: ${s.ip_address}\n`;
+                report += `  - Tests Conducted: ${s.total_tests}\n`;
+                report += `  - Avg Latency: ${s.avg_latency} ms (Max: ${s.max_latency} ms)\n`;
+                report += `  - Packet Loss: ${s.avg_packet_loss}%\n\n`;
+            });
+        }
+
+        report += `====================================================\n`;
+        report += `End of Report\n`;
+
+        // Trigger file download
+        const blob = new Blob([report], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Aurelis_Network_Report_${new Date().getTime()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    // Auto-fetch analytics when clicking the Reports tab
+    const reportsNavBtn = document.querySelector('.nav-item[data-target="reports"]');
+    if (reportsNavBtn) {
+        reportsNavBtn.addEventListener('click', loadAnalyticsDashboard);
+    }
+
     // Execute the fetch immediately when the app loads
     fetchNetworkInfo();
 
