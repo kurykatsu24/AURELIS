@@ -23,14 +23,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (themeToggleBtn) {
         themeToggleBtn.addEventListener('click', () => {
             const isLightNow = document.documentElement.getAttribute('data-theme') === 'light';
+            const themeSelect = document.getElementById('setting-theme'); // Target the settings dropdown
+
             if (!isLightNow) {
                 document.documentElement.setAttribute('data-theme', 'light');
                 localStorage.setItem('aurelis-theme', 'light');
                 updateThemeIcon(true);
+                if (themeSelect) themeSelect.value = 'light'; // Sync dropdown to Light
             } else {
                 document.documentElement.removeAttribute('data-theme');
                 localStorage.setItem('aurelis-theme', 'dark');
                 updateThemeIcon(false);
+                if (themeSelect) themeSelect.value = 'dark'; // Sync dropdown to Dark
             }
         });
     }
@@ -790,6 +794,98 @@ document.addEventListener('DOMContentLoaded', () => {
         reportsNavBtn.addEventListener('click', loadAnalyticsDashboard);
     }
 
+    // System Settings Integration (Phase 8)
+    const themeSelect = document.getElementById('setting-theme');
+    const intervalSelect = document.getElementById('setting-interval');
+    const factoryResetBtn = document.getElementById('factory-reset-btn');
+
+    // Global variable to hold our scan interval ID so we can clear it when changed
+    window.aurelisScanInterval = null;
+
+    function applyScanInterval(ms) {
+        // Clear the existing interval if it exists
+        if (window.aurelisScanInterval) clearInterval(window.aurelisScanInterval);
+
+        const delay = parseInt(ms, 10);
+        if (delay > 0) {
+            window.aurelisScanInterval = setInterval(() => {
+                if (scanBtn && !scanBtn.disabled) scanBtn.click();
+            }, delay);
+        }
+    }
+
+    // Initialize Settings from Local Storage
+    if (themeSelect && intervalSelect) {
+        // Load saved theme
+        const currentTheme = localStorage.getItem('aurelis-theme') || 'dark';
+        themeSelect.value = currentTheme;
+
+        // Load saved interval (default 15s)
+        const currentInterval = localStorage.getItem('aurelis-scan-interval') || '15000';
+        intervalSelect.value = currentInterval;
+
+        // Start the background scanner with the saved preference
+        applyScanInterval(currentInterval);
+
+        // Listen for Theme Changes via Dropdown
+        themeSelect.addEventListener('change', (e) => {
+            const newTheme = e.target.value;
+            if (newTheme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+                localStorage.setItem('aurelis-theme', 'light');
+                updateThemeIcon(true); // From your earlier code
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('aurelis-theme', 'dark');
+                updateThemeIcon(false);
+            }
+        });
+
+        // Listen for Interval Changes
+        intervalSelect.addEventListener('change', (e) => {
+            const newInterval = e.target.value;
+            localStorage.setItem('aurelis-scan-interval', newInterval);
+            applyScanInterval(newInterval);
+        });
+    }
+
+    // Factory Reset Logic
+    if (factoryResetBtn) {
+        factoryResetBtn.addEventListener('click', async () => {
+            const confirmed = confirm("WARNING: This will permanently delete all network scans, ping history, and reset your UI preferences. Are you absolutely sure?");
+            if (!confirmed) return;
+
+            factoryResetBtn.innerHTML = `<i data-lucide="loader"></i> Wiping Data...`;
+            lucide.createIcons();
+
+            try {
+                // Call the existing wipe endpoint we built earlier
+                const res = await fetch(`${API_BASE_URL}/history/clear`, { method: 'POST' });
+                const data = await res.json();
+
+                if (data.success) {
+                    // Clear Local Storage
+                    localStorage.removeItem('aurelis-theme');
+                    localStorage.removeItem('aurelis-scan-interval');
+
+                    alert("Factory Reset complete. AURELIS will now reload.");
+                    window.location.reload(); // Refresh the page to reset all memory states
+                } else {
+                    alert("Database wipe failed: " + data.error);
+                }
+            } catch (err) {
+                console.error("Reset error:", err);
+                alert("Failed to communicate with backend for reset.");
+            } finally {
+                factoryResetBtn.innerHTML = `Execute Reset`;
+            }
+        });
+    }
+
+    // Override the old hardcoded 15-second load interval we placed earlier
+    // (You can delete the old setInterval block inside window.addEventListener('load') if you want, 
+    // as applyScanInterval() now handles it natively!)
+
     // Execute the fetch immediately when the app loads
     fetchNetworkInfo();
 
@@ -797,14 +893,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('load', () => {
         if (scanBtn) {
             scanBtn.click(); // Initial scan
-
-            // Set up recurring automatic scans every 15 seconds (15000 milliseconds)
-            setInterval(() => {
-                // Only trigger if a scan isn't already running
-                if (!scanBtn.disabled) {
-                    scanBtn.click();
-                }
-            }, 15000);
         }
     });
 });
