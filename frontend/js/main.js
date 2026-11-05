@@ -231,50 +231,82 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Network Scan Execution
-    if (scanBtn) {
-        scanBtn.addEventListener('click', async () => {
+    // Network Scan Fetch & Execution Logic
+    async function executeScan() {
+        if (scanBtn) {
             scanBtn.disabled = true;
             scanBtn.innerHTML = `<i data-lucide="loader"></i> Scanning...`;
             lucide.createIcons();
+        }
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/devices`);
-                const data = await response.json();
+        try {
+            const response = await fetch(`${API_BASE_URL}/devices`);
+            const data = await response.json();
 
-                if (data.success) {
-                    data.devices.forEach(device => {
-                        if (!deviceTracker.has(device.mac_address)) {
-                            // Stamp entirely new devices with a creation timestamp
-                            device.firstSeen = new Date();
-                            deviceTracker.set(device.mac_address, device);
-                        } else {
-                            // Update dynamic data (like IP changes) but retain original timestamp
-                            const existing = deviceTracker.get(device.mac_address);
-                            existing.ip_address = device.ip_address;
-                            // Only update status if the device hasn't been explicitly confirmed 'unreachable' by a targeted ping
-                            if (existing.status !== 'unreachable') {
-                                existing.status = device.status;
-                            }
+            if (data.success) {
+                data.devices.forEach(device => {
+                    if (!deviceTracker.has(device.mac_address)) {
+                        // Stamp entirely new devices with a creation timestamp
+                        device.firstSeen = new Date();
+                        deviceTracker.set(device.mac_address, device);
+                    } else {
+                        // Update dynamic data (like IP changes) but retain original timestamp
+                        const existing = deviceTracker.get(device.mac_address);
+                        existing.ip_address = device.ip_address;
+                        // Only update status if the device hasn't been explicitly confirmed 'unreachable' by a targeted ping
+                        if (existing.status !== 'unreachable') {
+                            existing.status = device.status;
                         }
-                    });
+                    }
+                });
 
-                    if (metricDiscovered) metricDiscovered.textContent = deviceTracker.size;
-                    renderDevices();
-                } else {
-                    console.error("Scan failed:", data.error);
-                    alert("Scan failed: " + data.error);
-                }
-            } catch (error) {
-                console.error("Error fetching devices:", error);
-                alert("Failed to reach backend API. Is Flask running?");
-            } finally {
+                if (metricDiscovered) metricDiscovered.textContent = deviceTracker.size;
+                renderDevices();
+            } else {
+                console.error("Scan failed:", data.error);
+            }
+        } catch (error) {
+            console.error("Error fetching devices:", error);
+        } finally {
+            if (scanBtn) {
                 scanBtn.disabled = false;
                 scanBtn.innerHTML = `<i data-lucide="refresh-cw"></i> Scan Network`;
                 lucide.createIcons();
             }
-        });
+        }
     }
+
+    if (scanBtn) {
+        scanBtn.addEventListener('click', executeScan);
+    }
+
+    // Visibility-Aware Polling Loop (Self-scheduling setTimeout chain)
+    let pollTimerId = null;
+
+    async function pollNetworkState() {
+        if (pollTimerId) {
+            clearTimeout(pollTimerId);
+            pollTimerId = null;
+        }
+
+        const delaySetting = localStorage.getItem('aurelis-scan-interval') || '15000';
+        const delay = parseInt(delaySetting, 10);
+
+        if (!document.hidden && delay > 0) {
+            await executeScan();
+        }
+
+        if (delay > 0) {
+            pollTimerId = setTimeout(pollNetworkState, delay);
+        }
+    }
+
+    // Pause / Resume polling dynamically based on Page Visibility API
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            pollNetworkState();
+        }
+    });
 
     // Targeted Ping Execution (Syncs results back to Tracker)
     const runPingBtn = document.getElementById('run-ping-btn');
@@ -841,21 +873,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const intervalSelect = document.getElementById('setting-interval');
     const factoryResetBtn = document.getElementById('factory-reset-btn');
 
-    // Global variable to hold our scan interval ID so we can clear it when changed
-    window.aurelisScanInterval = null;
-
-    function applyScanInterval(ms) {
-        // Clear the existing interval if it exists
-        if (window.aurelisScanInterval) clearInterval(window.aurelisScanInterval);
-
-        const delay = parseInt(ms, 10);
-        if (delay > 0) {
-            window.aurelisScanInterval = setInterval(() => {
-                if (scanBtn && !scanBtn.disabled) scanBtn.click();
-            }, delay);
-        }
-    }
-
     // Initialize Settings from Local Storage
     if (themeSelect && intervalSelect) {
         // Load saved theme
@@ -865,9 +882,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load saved interval (default 15s)
         const currentInterval = localStorage.getItem('aurelis-scan-interval') || '15000';
         intervalSelect.value = currentInterval;
-
-        // Start the background scanner with the saved preference
-        applyScanInterval(currentInterval);
 
         // Listen for Theme Changes via Dropdown
         themeSelect.addEventListener('change', (e) => {
@@ -887,7 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
         intervalSelect.addEventListener('change', (e) => {
             const newInterval = e.target.value;
             localStorage.setItem('aurelis-scan-interval', newInterval);
-            applyScanInterval(newInterval);
+            pollNetworkState(); // Re-trigger polling chain with updated interval
         });
     }
 
@@ -931,10 +945,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Execute the fetch immediately when the app loads
     fetchNetworkInfo();
 
-    // Auto-trigger network scan on initial page load AND every 15 seconds
+    // Auto-trigger visibility-aware network scan polling on initial page load
     window.addEventListener('load', () => {
-        if (scanBtn) {
-            scanBtn.click(); // Initial scan
-        }
+        pollNetworkState();
     });
 });
