@@ -508,12 +508,68 @@
             <section id="settings" class="page-section">
                 <header class="page-header">
                     <div>
-                        <h2 class="page-title">Settings</h2>
-                        <p class="page-description">Application preferences and scanning configurations.</p>
+                        <h2 class="page-title">System Settings</h2>
+                        <p class="page-description">Configure AURELIS monitoring behaviors and interface preferences.
+                        </p>
                     </div>
                 </header>
-                <div class="panel">
-                    <p>[ Configuration Forms Placeholder ]</p>
+
+                <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr;">
+                    <!-- UI Preferences -->
+                    <div class="panel">
+                        <h3 class="panel-title" style="margin-bottom: 16px; color: var(--color-pink);">
+                            <i data-lucide="monitor" class="icon-sm" style="margin-right: 8px;"></i> Interface
+                        </h3>
+                        <div style="margin-bottom: 20px;">
+                            <label
+                                style="display: block; margin-bottom: 8px; font-size: 13px; color: var(--color-text-secondary);">Color
+                                Theme</label>
+                            <select id="setting-theme" class="panel-select" style="width: 100%; padding: 10px;">
+                                <option value="dark">Tech Noir (Dark Mode)</option>
+                                <option value="light">Luxury Light (Light Mode)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Monitoring Preferences -->
+                    <div class="panel">
+                        <h3 class="panel-title" style="margin-bottom: 16px; color: var(--color-pink);">
+                            <i data-lucide="activity" class="icon-sm" style="margin-right: 8px;"></i> Network Scanning
+                        </h3>
+                        <div style="margin-bottom: 20px;">
+                            <label
+                                style="display: block; margin-bottom: 8px; font-size: 13px; color: var(--color-text-secondary);">Background
+                                Scan Interval</label>
+                            <select id="setting-interval" class="panel-select" style="width: 100%; padding: 10px;">
+                                <option value="15000">Aggressive (Every 15 Seconds)</option>
+                                <option value="30000">Balanced (Every 30 Seconds)</option>
+                                <option value="60000">Relaxed (Every 60 Seconds)</option>
+                                <option value="0">Manual Scans Only</option>
+                            </select>
+                            <p style="font-size: 11px; color: var(--color-text-secondary); margin-top: 8px;">Controls
+                                how often AURELIS sweeps the subnet for new MAC addresses.</p>
+                        </div>
+                    </div>
+
+                    <!-- Danger Zone -->
+                    <div class="panel" style="grid-column: 1 / -1; border-color: rgba(255, 60, 60, 0.3);">
+                        <h3 class="panel-title" style="margin-bottom: 16px; color: #ff3c3c;">
+                            <i data-lucide="alert-triangle" class="icon-sm" style="margin-right: 8px;"></i> Danger Zone
+                        </h3>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255, 60, 60, 0.05); border-radius: var(--radius-sm);">
+                            <div>
+                                <strong style="display: block; margin-bottom: 4px;">Factory Reset AURELIS</strong>
+                                <span style="font-size: 12px; color: var(--color-text-secondary);">Wipe all SQLite
+                                    database history, ping diagnostics, and local browser preferences. This cannot be
+                                    undone.</span>
+                            </div>
+                            <button id="factory-reset-btn" class="badge-demo"
+                                style="cursor: pointer; background: #ff3c3c; color: #fff; border: none; padding: 8px 16px; font-weight: bold;">
+                                Execute Reset
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
