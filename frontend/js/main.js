@@ -233,27 +233,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Network Scan Fetch & Execution Logic
     async function executeScan() {
-        if (scanBtn) {
-            scanBtn.disabled = true;
-            scanBtn.innerHTML = `<i data-lucide="loader"></i> Scanning...`;
-            lucide.createIcons();
-        }
-
         try {
             const response = await fetch(`${API_BASE_URL}/devices`);
             const data = await response.json();
 
             if (data.success) {
+                // UI Feedback: Sync button spinner with backend's actual scanning state
+                if (scanBtn) {
+                    if (data.is_scanning) {
+                        scanBtn.disabled = true;
+                        scanBtn.innerHTML = `<i data-lucide="loader"></i> Scanning...`;
+                    } else {
+                        scanBtn.disabled = false;
+                        scanBtn.innerHTML = `<i data-lucide="refresh-cw"></i> Scan Network`;
+                    }
+                    lucide.createIcons();
+                }
+
                 data.devices.forEach(device => {
                     if (!deviceTracker.has(device.mac_address)) {
-                        // Stamp entirely new devices with a creation timestamp
                         device.firstSeen = new Date();
                         deviceTracker.set(device.mac_address, device);
                     } else {
-                        // Update dynamic data (like IP changes) but retain original timestamp
                         const existing = deviceTracker.get(device.mac_address);
                         existing.ip_address = device.ip_address;
-                        // Only update status if the device hasn't been explicitly confirmed 'unreachable' by a targeted ping
                         if (existing.status !== 'unreachable') {
                             existing.status = device.status;
                         }
@@ -267,12 +270,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Error fetching devices:", error);
-        } finally {
-            if (scanBtn) {
-                scanBtn.disabled = false;
-                scanBtn.innerHTML = `<i data-lucide="refresh-cw"></i> Scan Network`;
-                lucide.createIcons();
-            }
         }
     }
 
@@ -294,6 +291,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!document.hidden && delay > 0) {
             await executeScan();
+
+            // Auto-refresh the History tab if the user is currently looking at it
+            const historySection = document.getElementById('history');
+            if (historySection && historySection.classList.contains('active')) {
+                fetchHistory();
+            }
         }
 
         if (delay > 0) {

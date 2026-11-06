@@ -1,3 +1,5 @@
+import threading
+import time
 from flask import Flask, jsonify
 from flask_cors import CORS
 from backend.feature_modules.network_discovery import get_local_network_info, discover_devices
@@ -8,6 +10,36 @@ app = Flask(__name__)
 # Enable CORS for all routes so the standalone frontend can access the API
 CORS(app)
 init_db() # Creates the aurelis.db file and tables if they don't exist
+
+# --- BACKGROUND SCANNER DAEMON ---
+latest_scan_cache = {
+    "devices": [],
+    "last_scanned": None,
+    "is_scanning": False
+}
+cache_lock = threading.Lock()
+
+def background_network_scanner(interval=15):
+    """Continuously refreshes network inventory without blocking HTTP requests."""
+    while True:
+        with cache_lock:
+            latest_scan_cache["is_scanning"] = True
+        try:
+            devices = discover_devices(timeout=1.0)
+            log_scan(devices)
+            with cache_lock:
+                latest_scan_cache["devices"] = devices
+                latest_scan_cache["last_scanned"] = time.time()
+        except Exception as e:
+            print(f"Background scan error: {e}")
+        finally:
+            with cache_lock:
+                latest_scan_cache["is_scanning"] = False
+        time.sleep(interval)
+
+scan_thread = threading.Thread(target=background_network_scanner, daemon=True)
+scan_thread.start()
+# ---------------------------------
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -35,24 +67,15 @@ def network_info():
 
 @app.route('/api/devices', methods=['GET'])
 def get_devices():
-    """Phase 4: Perform local subnet sweep and retrieve ARP devices."""
-    try:
-        # The timeout parameter controls how long to wait for ping responses
-        devices = discover_devices(timeout=1.0)
-        
-        # Log the scan to the SQLite database
-        log_scan(devices)
-        
+    """Phase 4: Return immediate cached network snapshot without blocking."""
+    with cache_lock:
         return jsonify({
             "success": True,
-            "count": len(devices),
-            "devices": devices
+            "count": len(latest_scan_cache["devices"]),
+            "devices": latest_scan_cache["devices"],
+            "last_scanned": latest_scan_cache["last_scanned"],
+            "is_scanning": latest_scan_cache["is_scanning"]
         }), 200
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
 
 @app.route('/api/diagnostics/ping', methods=['POST'])
 def diagnostic_ping():

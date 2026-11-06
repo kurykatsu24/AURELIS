@@ -5,22 +5,35 @@ import os
 DB_PATH = os.path.join(os.path.dirname(__file__), 'aurelis.db')
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema.sql')
 
+def get_db_connection():
+    """Hardened connection with WAL mode to prevent database lockups."""
+    conn = sqlite3.connect(DB_PATH, timeout=5.0)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    return conn
+
 def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_db_connection() as conn:
         with open(SCHEMA_PATH, 'r') as f:
             conn.executescript(f.read())
 
 def log_scan(devices):
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("INSERT INTO network_scans (discovered_count) VALUES (?)", (len(devices),))
         scan_id = cursor.lastrowid
         
-        for dev in devices:
-            cursor.execute(
-                "INSERT INTO device_history (scan_id, ip_address, mac_address, hostname, status) VALUES (?, ?, ?, ?, ?)",
-                (scan_id, dev.get('ip_address'), dev.get('mac_address'), dev.get('hostname'), dev.get('status'))
-            )
+        # Batch insert using executemany for atomic, minimal lock holding time
+        device_rows = [
+            (scan_id, dev.get('ip_address'), dev.get('mac_address'), dev.get('hostname'), dev.get('status'))
+            for dev in devices
+        ]
+        cursor.executemany(
+            "INSERT INTO device_history (scan_id, ip_address, mac_address, hostname, status) VALUES (?, ?, ?, ?, ?)",
+            device_rows
+        )
         conn.commit()
 
 def log_ping(ip_address, status, loss, latency):
