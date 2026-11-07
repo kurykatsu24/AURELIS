@@ -655,10 +655,13 @@ h5 {
    ========================================================================== */
 .map-panel {
     position: relative;
-    height: 650px;
+    height: 550px;
+    /* Reduced height as requested */
     padding: 0;
     overflow: hidden;
-    background: radial-gradient(circle at center, rgba(234, 123, 148, 0.05) 0%, transparent 70%);
+    background-color: var(--color-bg-card);
+    /* Matches the table backgrounds */
+    border-radius: var(--radius-md);
 }
 
 #network-topology-canvas {
@@ -677,8 +680,7 @@ h5 {
     background: var(--glass-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--color-pink);
-    border-left: 4px solid var(--color-pink);
+    border: 1px solid var(--color-border);
     padding: 14px;
     border-radius: var(--radius-sm);
     pointer-events: none;
@@ -688,4 +690,27 @@ h5 {
     color: var(--color-text-primary);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
     min-width: 200px;
+}
+
+/* Tooltip Dynamic Glow Classes */
+.tooltip-header {
+    font-size: 16px;
+    font-weight: 800;
+    /* Extra bold */
+    color: #ffffff;
+    /* Pure white center */
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.glow-blue {
+    /* Blue stroke and outer glow */
+    -webkit-text-stroke: 0.3px #51A7F8;
+    text-shadow: 0 0 10px rgba(81, 167, 248, 1);
+}
+
+.glow-pink {
+    /* Pink stroke and outer glow */
+    -webkit-text-stroke: 0.3px #EA7B94;
+    text-shadow: 0 0 10px rgba(234, 123, 148, 1);
 }

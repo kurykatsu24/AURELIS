@@ -93,6 +93,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // Backend API Configuration
     const API_BASE_URL = 'http://127.0.0.1:5000/api';
 
+    // ==========================================
+    // UI DESIGN MODE: Set to true to bypass Flask
+    // ==========================================
+    const DESIGN_MODE = false; // <-- CHANGED TO TRUE OR FALSE for testing the frontend
+
+    if (DESIGN_MODE) {
+        console.warn("DESIGN MODE ACTIVE: Intercepting API calls with mock data.");
+
+        window.fetch = async (url, options) => {
+            if (url.includes('/network/info')) {
+                return {
+                    json: async () => ({
+                        success: true,
+                        local_ip: "192.168.1.15",
+                        network_cidr: "192.168.1.0/24"
+                    })
+                };
+            }
+            if (url.includes('/devices')) {
+                return {
+                    json: async () => ({
+                        success: true,
+                        is_scanning: false,
+                        devices: [
+                            { ip_address: "192.168.1.1", mac_address: "AA:BB:CC:00:00:01", hostname: "AURELIS-Gateway", status: "reachable" },
+                            { ip_address: "192.168.1.15", mac_address: "AA:BB:CC:00:00:02", hostname: "ThinkPad-T480", status: "reachable" },
+                            { ip_address: "192.168.1.22", mac_address: "AA:BB:CC:00:00:03", hostname: "Redmi-Turbo-4", status: "reachable" },
+                            { ip_address: "192.168.1.42", mac_address: "AA:BB:CC:00:00:04", hostname: "Unknown", status: "offline" },
+                            { ip_address: "192.168.1.55", mac_address: "AA:BB:CC:00:00:05", hostname: "Smart-TV", status: "reachable" },
+                            { ip_address: "192.168.1.60", mac_address: "AA:BB:CC:00:00:06", hostname: "Unknown", status: "reachable" },
+                            { ip_address: "192.168.1.61", mac_address: "AA:BB:CC:00:00:07", hostname: "Unknown", status: "reachable" },
+                            { ip_address: "192.168.1.62", mac_address: "AA:BB:CC:00:00:08", hostname: "Unknown", status: "offline" },
+                            { ip_address: "192.168.1.63", mac_address: "AA:BB:CC:00:00:09", hostname: "Unknown", status: "reachable" },
+                            { ip_address: "192.168.1.64", mac_address: "AA:BB:CC:00:00:10", hostname: "Unknown", status: "reachable" }
+                        ]
+                    })
+                };
+            }
+            // Catch-all for history, alerts, and reports to prevent console errors
+            return { json: async () => ({ success: true, data: [] }) };
+        };
+    }
+
     // Fetch Initial Network Info
     async function fetchNetworkInfo() {
         const ipDisplay = document.getElementById('gateway-ip-display');
