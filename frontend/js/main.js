@@ -170,6 +170,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const deviceTableBody = document.getElementById('device-table-body');
     const fullInventoryBody = document.getElementById('full-inventory-body');
 
+
+    // Overview Dashboard Variables
+    let deviceStatusDonutInstance = null;
+    let overviewPerformanceInstance = null;
+    const donutValReachable = document.getElementById('donut-val-reachable');
+    const donutValUnreachable = document.getElementById('donut-val-unreachable');
+    const recentActivityList = document.getElementById('recent-activity-list');
+
+    // Initialize empty Semi-Donut Chart
+    function initDeviceStatusDonut() {
+        const ctx = document.getElementById('device-status-donut');
+        if (!ctx) return;
+
+        deviceStatusDonutInstance = new Chart(ctx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Reachable', 'Unreachable'],
+                datasets: [{
+                    data: [0, 100], // Default grey ring
+                    backgroundColor: ['#51A7F8', '#191B21'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                rotation: -90,
+                circumference: 180,
+                cutout: '80%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+    }
+
+    // Call immediately on load
+    initDeviceStatusDonut();
+
     // Keyed Node DOM Reconciliation Helper (Fixes innerHTML thrashing)
     function updateDeviceTable(tbodyElement, devices) {
         if (!tbodyElement) return;
@@ -254,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateDeviceTable(fullInventoryBody, allDevices);
         }
 
-        // Dynamically Calculate & Render Device Status Progress Bars
+        // Dynamically Calculate & Render Device Status Data
         const total = allDevices.length;
         if (total > 0) {
             let unreachableCount = 0;
@@ -265,23 +306,80 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const reachableCount = total - unreachableCount;
 
-            // Update Progress Bar Text Counts
-            const statusCounts = document.querySelectorAll('.status-row .status-count');
-            if (statusCounts.length >= 2) {
-                statusCounts[0].textContent = reachableCount;
-                statusCounts[1].textContent = unreachableCount;
+            // 1. Update Dashboard Overview Metric Cards
+            if (metricReachable) metricReachable.textContent = reachableCount;
+            // Add a hook to update the top 'Discovered Devices' metric if you have its ID
+            const metricDiscovTop = document.querySelector('.metric-card:nth-child(1) .metric-value');
+            if (metricDiscovTop) metricDiscovTop.textContent = total;
+
+            // 2. Update Semi-Donut Chart & Dynamic Labels
+            const labelReachable = document.querySelector('.reachable-label');
+            const labelUnreachable = document.querySelector('.unreachable-label');
+
+            if (donutValReachable) donutValReachable.textContent = reachableCount;
+            if (donutValUnreachable) donutValUnreachable.textContent = unreachableCount;
+
+            if (deviceStatusDonutInstance) {
+                if (reachableCount === 0 && unreachableCount === 0) {
+                    deviceStatusDonutInstance.data.datasets[0].data = [0, 100];
+                    deviceStatusDonutInstance.data.datasets[0].backgroundColor = ['#51A7F8', '#191B21'];
+                    if (labelReachable) labelReachable.style.opacity = '0';
+                    if (labelUnreachable) labelUnreachable.style.opacity = '0';
+                } else {
+                    deviceStatusDonutInstance.data.datasets[0].data = [reachableCount, unreachableCount];
+                    deviceStatusDonutInstance.data.datasets[0].backgroundColor = ['#51A7F8', '#91636d'];
+
+                    // --- Center Label Positioning ---
+                    // Force Chart.js to recalculate its layout
+                    deviceStatusDonutInstance.update();
+
+                    const chart = deviceStatusDonutInstance;
+                    const meta = chart.getDatasetMeta(0);
+
+                    // Get the exact center coordinate of the donut hole
+                    const centerX = meta.data[0].x;
+                    const centerY = meta.data[0].y;
+
+                    // The distance from the center hole to the middle of the colored arc
+                    const arcRadius = (meta.data[0].outerRadius + meta.data[0].innerRadius) / 2;
+
+                    // If it's a 100% reachable network (like your 17 devices screenshot)
+                    if (reachableCount > 0 && unreachableCount === 0 && labelReachable) {
+                        // Pin it exactly top-center
+                        labelReachable.style.left = `${centerX}px`;
+                        labelReachable.style.top = `${centerY - arcRadius}px`;
+                        labelReachable.style.opacity = '1';
+                        if (labelUnreachable) labelUnreachable.style.opacity = '0';
+                    }
+                    // If it's a split network (like your 8 / 2 screenshot)
+                    else {
+                        // Position Reachable Label (Left curve)
+                        if (reachableCount > 0 && labelReachable) {
+                            const start = meta.data[0].startAngle;
+                            const end = meta.data[0].endAngle;
+                            const mid = start + (end - start) / 2;
+
+                            labelReachable.style.left = `${centerX + Math.cos(mid) * arcRadius}px`;
+                            labelReachable.style.top = `${centerY + Math.sin(mid) * arcRadius}px`;
+                            labelReachable.style.opacity = '1';
+                        }
+
+                        // Position Unreachable Label (Right curve)
+                        if (unreachableCount > 0 && labelUnreachable && meta.data[1]) {
+                            const start = meta.data[1].startAngle;
+                            const end = meta.data[1].endAngle;
+                            const mid = start + (end - start) / 2;
+
+                            labelUnreachable.style.left = `${centerX + Math.cos(mid) * arcRadius}px`;
+                            labelUnreachable.style.top = `${centerY + Math.sin(mid) * arcRadius}px`;
+                            labelUnreachable.style.opacity = '1';
+                        }
+                    }
+                }
+                // We don't need a second update() here because we updated before calculating
             }
 
-            // Update Progress Bar Widths dynamically
-            const reachBar = document.querySelector('.fill-reachable');
-            const unreachBar = document.querySelector('.fill-unreachable');
-            if (reachBar) reachBar.style.width = `${Math.round((reachableCount / total) * 100)}%`;
-            if (unreachBar) unreachBar.style.width = `${Math.round((unreachableCount / total) * 100)}%`;
-
-            // Update Dashboard Overview Metric Card
-            if (metricReachable) metricReachable.textContent = reachableCount;
-
-            // (Add this inside renderDevices, right after it updates metricReachable)
+            // 3. Update Network Map if active
             if (document.getElementById('map').classList.contains('active')) {
                 drawNetworkMap();
             }
@@ -307,10 +405,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     lucide.createIcons();
                 }
 
+                let newDevicesFound = 0;
+                let lastNewDeviceName = "";
+
                 data.devices.forEach(device => {
                     if (!deviceTracker.has(device.mac_address)) {
                         device.firstSeen = new Date();
                         deviceTracker.set(device.mac_address, device);
+                        newDevicesFound++;
+                        lastNewDeviceName = device.hostname || device.ip_address;
                     } else {
                         const existing = deviceTracker.get(device.mac_address);
                         existing.ip_address = device.ip_address;
@@ -321,6 +424,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (metricDiscovered) metricDiscovered.textContent = deviceTracker.size;
+
+                // Phase 10: Update Recent Activity Feed
+                if (recentActivityList) {
+                    const now = new Date().toLocaleTimeString([], { hour12: false });
+                    let activityHTML = `
+                        <li>
+                            <span class="activity-time">${now}</span>
+                            <span class="activity-desc">Network scan completed. Found ${deviceTracker.size} devices.</span>
+                        </li>
+                    `;
+
+                    if (newDevicesFound > 0) {
+                        activityHTML = `
+                            <li>
+                                <span class="activity-time" style="color: var(--color-online);">${now}</span>
+                                <span class="activity-desc">New device discovered: ${lastNewDeviceName}</span>
+                            </li>
+                        ` + activityHTML;
+                    }
+
+                    // Keep only the 4 most recent activities
+                    recentActivityList.insertAdjacentHTML('afterbegin', activityHTML);
+                    while (recentActivityList.children.length > 4) {
+                        recentActivityList.removeChild(recentActivityList.lastChild);
+                    }
+                }
+
                 renderDevices();
             } else {
                 console.error("Scan failed:", data.error);
