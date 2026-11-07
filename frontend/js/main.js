@@ -325,6 +325,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateDeviceTable(tbodyElement, devices) {
         if (!tbodyElement) return;
 
+        // Clear out any "No network scanned yet" or loading rows if real data is present
+        if (devices.length > 0 && tbodyElement.querySelector('td[colspan]')) {
+            tbodyElement.innerHTML = '';
+        }
+
         const existingRows = new Map();
         Array.from(tbodyElement.children).forEach(row => {
             const mac = row.getAttribute('data-mac');
@@ -556,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Keep only the 4 most recent activities
                     recentActivityList.insertAdjacentHTML('afterbegin', activityHTML);
-                    while (recentActivityList.children.length > 4) {
+                    while (recentActivityList.children.length > 3) {
                         recentActivityList.removeChild(recentActivityList.lastChild);
                     }
                 }

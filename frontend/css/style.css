@@ -725,9 +725,12 @@ h5 {
 }
 
 /* Force both the left chart and right column to be exactly this tall */
-.chart-panel,
+.chart-panel {
+    height: 600px;
+}
+
 .combined-right-column {
-    height: 750px;
+    height: 600px;
     /* <--- ADJUST THIS TO CHANGE TOP ROW HEIGHT */
 }
 
@@ -747,7 +750,6 @@ h5 {
 /* Semi-Donut Chart Custom Formatting */
 .donut-container {
     flex: 1;
-    margin-bottom: 0px;
     margin-top: -60px;
 }
 
@@ -789,7 +791,7 @@ h5 {
     gap: 24px;
     font-size: 12px;
     color: var(--color-text-secondary);
-    margin-top: auto;
+    margin-top: -50px;
     /* Pushes legend to the bottom */
 }
 

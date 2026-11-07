@@ -161,17 +161,16 @@
                 <!-- Dashboard Layout Grid -->
                 <div class="dashboard-grid overview-layout">
 
-                    <!-- Network Performance Chart (Taller) -->
+                    <!-- Network Performance Chart -->
                     <div class="panel chart-panel">
-                        <div class="panel-header">
+                        <div class="panel-header"
+                            style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 16px;">
                             <h3 class="panel-title">Network Performance</h3>
-                            <select class="panel-select">
-                                <option>Last 1 Hour</option>
-                                <option>Last 24 Hours</option>
-                            </select>
+                            <p style="font-size: 11px; color: var(--color-text-secondary);">Real-time tracking of active
+                                devices across recent scans</p>
                         </div>
                         <div class="chart-placeholder"
-                            style="height: 400px; position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                            style="height: 460px; position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                             <canvas id="overview-performance-chart"
                                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
                         </div>
