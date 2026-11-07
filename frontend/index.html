@@ -20,6 +20,10 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Three.js 3D Engine & Tweening for Isometric Animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
 </head>
 
 <body>
@@ -79,7 +83,7 @@
                     <i data-lucide="history"></i> Network History
                 </button>
                 <button class="nav-item" data-target="reports">
-                    <i data-lucide="file-text"></i> Reports
+                    <i data-lucide="file-text"></i> Analytics & Reports
                 </button>
             </nav>
 
@@ -349,15 +353,13 @@
                         <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> Redraw Topology
                     </button>
                 </header>
-                <div class="panel chart-panel"
-                    style="position: relative; height: 650px; padding: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at center, rgba(234, 123, 148, 0.05) 0%, transparent 70%); border-radius: var(--radius-md);">
-                    <canvas id="network-topology-canvas"
-                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                <div class="panel chart-panel map-panel">
+                    <!-- WebGL 3D Canvas -->
+                    <canvas id="network-topology-canvas"></canvas>
 
                     <!-- Tech Noir Hover Tooltip -->
-                    <div id="map-tooltip"
-                        style="position: absolute; display: none; background: var(--glass-bg); backdrop-filter: blur(10px); border: 1px solid var(--color-pink); padding: 12px; border-radius: var(--radius-sm); pointer-events: none; z-index: 10; font-family: var(--font-data); font-size: 12px; color: var(--color-text-primary); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-                        <!-- Injected by JS -->
+                    <div id="map-tooltip" class="map-tooltip">
+                        <!-- Injected dynamically by topology3d.js -->
                     </div>
                 </div>
             </section>
@@ -577,6 +579,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="js/topology3d.js"></script>
     <script src="js/main.js"></script>
 </body>
 

@@ -62,6 +62,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.scrollTo(0, 0);
 
                 targetSection.classList.add('active');
+
+                // Phase 9: Manage WebGL Lifecycle to save battery
+                if (window.networkTopology3D) {
+                    if (targetId === 'map') {
+                        window.networkTopology3D.resume();
+                        // Force resize to fix 0x0 WebGL render when initialized while hidden
+                        setTimeout(() => {
+                            window.networkTopology3D.onWindowResize();
+                            drawNetworkMap();
+                        }, 50);
+                    } else {
+                        window.networkTopology3D.pause();
+                    }
+                }
             }
         });
     });
@@ -78,6 +92,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Backend API Configuration
     const API_BASE_URL = 'http://127.0.0.1:5000/api';
+
+    // ==========================================
+    // UI DESIGN MODE: Set to true to bypass Flask
+    // ==========================================
+    const DESIGN_MODE = false; // <-- CHANGED TO TRUE OR FALSE for testing the frontend
+
+    if (DESIGN_MODE) {
+        console.warn("DESIGN MODE ACTIVE: Intercepting API calls with mock data.");
+
+        window.fetch = async (url, options) => {
+            if (url.includes('/network/info')) {
+                return {
+                    json: async () => ({
+                        success: true,
+                        local_ip: "192.168.1.15",
+                        network_cidr: "192.168.1.0/24"
+                    })
+                };
+            }
+            if (url.includes('/devices')) {
+                return {
+                    json: async () => ({
+                        success: true,
+                        is_scanning: false,
+                        devices: [
+                            { ip_address: "192.168.1.1", mac_address: "AA:BB:CC:00:00:01", hostname: "AURELIS-Gateway", status: "reachable" },
+                            { ip_address: "192.168.1.15", mac_address: "AA:BB:CC:00:00:02", hostname: "ThinkPad-T480", status: "reachable" },
+                            { ip_address: "192.168.1.22", mac_address: "AA:BB:CC:00:00:03", hostname: "Redmi-Turbo-4", status: "reachable" },
+                            { ip_address: "192.168.1.42", mac_address: "AA:BB:CC:00:00:04", hostname: "Unknown", status: "offline" },
+                            { ip_address: "192.168.1.55", mac_address: "AA:BB:CC:00:00:05", hostname: "Smart-TV", status: "reachable" },
+                            { ip_address: "192.168.1.60", mac_address: "AA:BB:CC:00:00:06", hostname: "Unknown", status: "reachable" },
+                            { ip_address: "192.168.1.61", mac_address: "AA:BB:CC:00:00:07", hostname: "Unknown", status: "reachable" },
+                            { ip_address: "192.168.1.62", mac_address: "AA:BB:CC:00:00:08", hostname: "Unknown", status: "offline" },
+                            { ip_address: "192.168.1.63", mac_address: "AA:BB:CC:00:00:09", hostname: "Unknown", status: "reachable" },
+                            { ip_address: "192.168.1.64", mac_address: "AA:BB:CC:00:00:10", hostname: "Unknown", status: "reachable" }
+                        ]
+                    })
+                };
+            }
+            // Catch-all for history, alerts, and reports to prevent console errors
+            return { json: async () => ({ success: true, data: [] }) };
+        };
+    }
 
     // Fetch Initial Network Info
     async function fetchNetworkInfo() {
@@ -548,163 +605,22 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshSecurityBtn.addEventListener('click', fetchSecurityAlerts);
     }
 
-    // Network Topology Engine (Phase 7: Network Map)
-    const mapCanvas = document.getElementById('network-topology-canvas');
-    const mapTooltip = document.getElementById('map-tooltip');
+    // Network Topology Engine (Phase 9: Three.js Bridge)
     const refreshMapBtn = document.getElementById('refresh-map-btn');
-    let mapNodes = []; // Stores node coordinates for hover detection
 
     function drawNetworkMap() {
-        if (!mapCanvas) return;
-        const ctx = mapCanvas.getContext('2d');
-        const parent = mapCanvas.parentElement;
-
-        // Dynamically size canvas to fit the panel perfectly
-        mapCanvas.width = parent.clientWidth;
-        mapCanvas.height = parent.clientHeight;
-
-        const centerX = mapCanvas.width / 2;
-        const centerY = mapCanvas.height / 2;
-
-        ctx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+        if (!window.networkTopology3D) return;
 
         const allDevices = Array.from(deviceTracker.values());
-        if (allDevices.length === 0) {
-            ctx.fillStyle = '#a7a9b2'; // --color-text-secondary
-            ctx.font = '14px "Space Mono", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('Awaiting network scan data...', centerX, centerY);
-            return;
+        window.networkTopology3D.buildGraph(allDevices);
+    }
+
+    // Redraw dynamically if window resizes (Three.js handles its own canvas resize)
+    window.addEventListener('resize', () => {
+        if (document.getElementById('map').classList.contains('active')) {
+            drawNetworkMap();
         }
-
-        // Identify Gateway (assuming typical .1 subnet router) and Clients
-        let gateway = allDevices.find(d => d.ip_address.endsWith('.1'));
-        let clients = allDevices.filter(d => !d.ip_address.endsWith('.1'));
-
-        if (!gateway) {
-            gateway = { ip_address: 'Gateway', hostname: 'Router', status: 'reachable', mac_address: 'N/A' };
-        } else {
-            clients = clients.filter(c => c.mac_address !== gateway.mac_address); // Prevent duplication
-        }
-
-        mapNodes = [];
-
-        // Match your CSS Theme Colors
-        const colorPink = '#EA7B94';
-        const colorOnline = '#51A7F8';
-        const colorOffline = '#91636d';
-        const colorLine = 'rgba(255, 255, 255, 0.08)';
-
-        // Draw Central Gateway Node
-        mapNodes.push({ x: centerX, y: centerY, radius: 22, device: gateway, color: colorPink });
-
-        // Calculate orbit for connected devices
-        const radius = Math.min(centerX, centerY) - 90;
-        const angleStep = (Math.PI * 2) / Math.max(clients.length, 1);
-
-        // Draw connecting lines and calculate client coordinates
-        clients.forEach((client, index) => {
-            const angle = index * angleStep;
-            const x = centerX + radius * Math.cos(angle);
-            const y = centerY + radius * Math.sin(angle);
-
-            const isOnline = (client.status === 'reachable' || client.status === 'online');
-            const nodeColor = isOnline ? colorOnline : colorOffline;
-
-            mapNodes.push({ x, y, radius: 10, device: client, color: nodeColor });
-
-            // Draw Line to Center
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(x, y);
-            ctx.strokeStyle = colorLine;
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        });
-
-        // Draw Nodes on top of lines
-        mapNodes.forEach(node => {
-            // Tech Noir Glow Effect
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = node.color;
-
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-            ctx.fillStyle = node.color;
-            ctx.fill();
-
-            ctx.shadowBlur = 0; // Reset shadow for text clarity
-
-            // Node Label (Last octet of IP or short hostname)
-            ctx.fillStyle = '#F3F0ED'; // --color-text-primary
-            ctx.font = '11px "Space Mono", monospace';
-            ctx.textAlign = 'center';
-
-            let label = node.device.ip_address.split('.').pop();
-            if (node.device === gateway) label = 'GW';
-
-            ctx.fillText(label, node.x, node.y + node.radius + 16);
-        });
-    }
-
-    // Interactivity: Hover Tooltip Detection
-    if (mapCanvas) {
-        mapCanvas.addEventListener('mousemove', (e) => {
-            const rect = mapCanvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            let hoveredNode = null;
-
-            // Check collision with any node
-            for (let node of mapNodes) {
-                const dx = mouseX - node.x;
-                const dy = mouseY - node.y;
-                if (Math.sqrt(dx * dx + dy * dy) < node.radius + 8) { // +8px padding for easier hovering
-                    hoveredNode = node;
-                    break;
-                }
-            }
-
-            if (hoveredNode) {
-                mapCanvas.style.cursor = 'crosshair';
-                mapTooltip.style.display = 'block';
-                // Keep tooltip bound within the panel
-                const tooltipX = Math.min(mouseX + 15, mapCanvas.width - 200);
-                const tooltipY = Math.min(mouseY + 15, mapCanvas.height - 100);
-
-                mapTooltip.style.left = tooltipX + 'px';
-                mapTooltip.style.top = tooltipY + 'px';
-                mapTooltip.innerHTML = `
-                    <strong style="color: ${hoveredNode.color}; font-size: 14px;">${hoveredNode.device.hostname}</strong><br>
-                    <div style="margin-top: 6px; opacity: 0.8;">
-                        IP: ${hoveredNode.device.ip_address}<br>
-                        MAC: ${hoveredNode.device.mac_address || 'N/A'}<br>
-                        Status: ${hoveredNode.device.status.toUpperCase()}
-                    </div>
-                `;
-            } else {
-                mapCanvas.style.cursor = 'default';
-                mapTooltip.style.display = 'none';
-            }
-        });
-
-        // Redraw dynamically if window resizes
-        window.addEventListener('resize', () => {
-            if (document.getElementById('map').classList.contains('active')) {
-                drawNetworkMap();
-            }
-        });
-    }
-
-    // Connect to Navigation Clicks
-    const mapNavBtn = document.querySelector('.nav-item[data-target="map"]');
-    if (mapNavBtn) {
-        mapNavBtn.addEventListener('click', () => {
-            // 50ms delay allows CSS display:block to trigger so canvas can read clientWidth
-            setTimeout(drawNetworkMap, 50);
-        });
-    }
+    });
 
     if (refreshMapBtn) {
         refreshMapBtn.addEventListener('click', drawNetworkMap);
