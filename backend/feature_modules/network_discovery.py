@@ -73,6 +73,28 @@ def get_arp_table():
         
     return arp_entries
 
+def resolve_hostname(ip_str):
+    """
+    Attempts to resolve an IP address to a human-readable hostname.
+    Enforces a strict timeout to prevent OS DNS resolvers from hanging.
+    """
+    old_timeout = socket.getdefaulttimeout()
+    try:
+        # Fail fast! Only wait 0.5 seconds for a device to provide its name
+        socket.setdefaulttimeout(0.5) 
+        
+        hostname = socket.gethostbyaddr(ip_str)[0]
+        hostname = hostname.split('.')[0]
+        
+        if hostname == ip_str:
+            return "Unknown"
+        return hostname
+    except Exception:
+        return "Unknown"
+    finally:
+        # Always restore the system's default socket timeout
+        socket.setdefaulttimeout(old_timeout)
+
 def discover_devices(timeout=1):
     """
     Identifies reachable devices within the authorized local network.
@@ -111,18 +133,31 @@ def discover_devices(timeout=1):
         executor.map(ping_host, (str(ip) for ip in network.hosts()))
 
     arp_table = get_arp_table()
+    discovered_devices = []
 
-    for ip_str, mac in arp_table.items():
+    def process_device(ip_mac_tuple):
+        """Helper to resolve hostnames safely within a thread pool."""
+        ip_str, mac = ip_mac_tuple
         try:
             ip_obj = ipaddress.ip_address(ip_str)
             if ip_obj in network and ip_obj != network.network_address and ip_obj != network.broadcast_address:
-                discovered_devices.append({
+                resolved_name = resolve_hostname(ip_str)
+                return {
                     "ip_address": ip_str,
                     "mac_address": mac,
-                    "hostname": "Unknown",
-                    "status": "online" 
-                })
+                    "hostname": resolved_name,
+                    "status": "reachable" 
+                }
         except ValueError:
-            continue
+            pass
+        return None
+
+    # Execute Reverse DNS lookups concurrently to prevent the daemon from freezing
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CONCURRENT_PINGS) as executor:
+        results = executor.map(process_device, arp_table.items())
+        
+    for device in results:
+        if device: # If the device was successfully parsed and belongs to the subnet
+            discovered_devices.append(device)
 
     return discovered_devices
