@@ -714,3 +714,134 @@ h5 {
     -webkit-text-stroke: 0.3px #EA7B94;
     text-shadow: 0 0 10px rgba(234, 123, 148, 1);
 }
+
+/* ==========================================================================
+   Phase 10: Overview Dashboard Layout Revamp
+   ========================================================================== */
+.overview-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+}
+
+/* Force both the left chart and right column to be exactly this tall */
+.chart-panel {
+    height: 600px;
+}
+
+.combined-right-column {
+    height: 600px;
+    /* <--- ADJUST THIS TO CHANGE TOP ROW HEIGHT */
+}
+
+.combined-right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.combined-right-column .panel {
+    flex: 1;
+    /* Now this safely splits the 480px height evenly */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Semi-Donut Chart Custom Formatting */
+.donut-container {
+    flex: 1;
+    margin-top: -60px;
+}
+
+/* Base Glassmorphism Sticker (From Figma) */
+.donut-label {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    /* Layout & Spacing */
+    min-width: 60px;
+    padding: 8px 12px;
+
+    /* Center the anchor point */
+    transform: translate(-50%, -50%);
+
+    /* Figma Glassmorphism Effects */
+    background: rgba(217, 217, 217, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0px 1.6px 15px rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 12px;
+    z-index: 10;
+
+    /* Smooth fade in/out */
+    transition: opacity 0.3s ease;
+    opacity: 0;
+    /* Hidden by default */
+    pointer-events: none;
+}
+
+
+.donut-legend {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    margin-top: -50px;
+    /* Pushes legend to the bottom */
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Main Number Typography */
+.donut-label-value {
+    font-family: var(--font-heading);
+    font-size: 24px;
+    font-weight: 700;
+    color: #FFFFFF;
+    line-height: 1;
+}
+
+/* Subtitle Typography ("devices") */
+.donut-label-sub {
+    font-family: var(--font-data);
+    font-size: 10px;
+    font-weight: 700;
+    color: #FFFFFF;
+    text-transform: lowercase;
+    margin-top: 2px;
+}
+
+/* Precise CSS Percentage Positioning */
+.reachable-label {
+    /* Locks to the left-center of the arc */
+    left: 20%;
+    top: 50%;
+}
+
+.unreachable-label {
+    /* Locks to the right-center of the arc */
+    left: 80%;
+    top: 50%;
+}
+
+/* Override for 100% Reachable State (Applied via JS) */
+.donut-label.center-pinned {
+    left: 50%;
+    top: 25%;
+}
