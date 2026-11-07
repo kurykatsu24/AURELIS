@@ -249,6 +249,25 @@ def reports_statistics():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/network/performance', methods=['GET'])
+def network_performance_chart():
+    """Phase 10: Fetch historical device counts for the Overview line chart."""
+    try:
+        scans = get_recent_scans(limit=10) # Only pull the last 10
+        scans.reverse() # Oldest to newest
+        
+        # Return the full raw timestamp string, frontend will parse it
+        labels = [s['timestamp'] for s in scans]
+        data = [s['discovered_count'] for s in scans]
+        
+        return jsonify({
+            "success": True, 
+            "labels": labels,
+            "data": data
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 if __name__ == '__main__':
     # Run the server on port 5000 with debug mode enabled for development
     app.run(debug=True, host='127.0.0.1', port=5000)

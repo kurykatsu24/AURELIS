@@ -211,6 +211,116 @@ document.addEventListener('DOMContentLoaded', () => {
     // Call immediately on load
     initDeviceStatusDonut();
 
+    // Phase 10: Render Network Performance Line Chart
+    // Phase 10: Initial Load of Network Performance History
+    async function updateNetworkPerformanceChart() {
+        if (typeof DESIGN_MODE !== 'undefined' && DESIGN_MODE) return;
+
+        const perfCtx = document.getElementById('overview-performance-chart');
+        if (!perfCtx) return;
+
+        const ctx = perfCtx.getContext('2d');
+
+        // Define Gradient
+        let perfGradient = ctx.createLinearGradient(0, 0, 0, 400);
+        perfGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+        perfGradient.addColorStop(0.3, 'rgba(234, 123, 148, 0.5)');
+        perfGradient.addColorStop(1, 'rgba(234, 123, 148, 0.0)');
+
+        let initialLabels = [];
+        let initialData = [];
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/network/performance`);
+            const result = await response.json();
+
+            if (result.success && result.data.length > 0) {
+                // Parse DB history (if any) to local time
+                initialLabels = result.labels.map(utcStr => {
+                    const dateObj = new Date(utcStr + 'Z');
+                    return dateObj.toLocaleTimeString([], { hour12: false });
+                });
+                initialData = result.data;
+            }
+        } catch (error) {
+            console.warn("No performance history found, starting fresh:", error);
+        }
+
+        // Destroy existing chart if recreating
+        if (overviewPerformanceInstance) overviewPerformanceInstance.destroy();
+
+        // ALWAYS build the chart shell so the live pusher has a target
+        overviewPerformanceInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: initialLabels,
+                datasets: [{
+                    label: 'Total Connected Devices',
+                    data: initialData,
+                    borderColor: '#EA7B94',
+                    backgroundColor: perfGradient,
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#FFFFFF',
+                    pointBorderColor: '#EA7B94',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 800, easing: 'easeOutQuart' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(25, 27, 33, 0.9)',
+                        titleFont: { family: 'Space Mono', size: 12 },
+                        bodyFont: { family: 'Unbounded', size: 14 }
+                    }
+                },
+                scales: {
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#a7a9b2', stepSize: 1 },
+                        beginAtZero: true
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            color: '#a7a9b2',
+                            maxTicksLimit: 5,
+                            maxRotation: 0
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Phase 10: Push Live Data to Chart directly from Frontend state
+    function pushLiveNetworkPerformanceData(deviceCount) {
+        if (!overviewPerformanceInstance) return;
+
+        // Generate the exact current local time
+        const nowString = new Date().toLocaleTimeString([], { hour12: false });
+
+        // Push the new data point to the end of the arrays
+        overviewPerformanceInstance.data.labels.push(nowString);
+        overviewPerformanceInstance.data.datasets[0].data.push(deviceCount);
+
+        // If we have more than 10 points, shift the oldest one off the front
+        if (overviewPerformanceInstance.data.labels.length > 10) {
+            overviewPerformanceInstance.data.labels.shift();
+            overviewPerformanceInstance.data.datasets[0].data.shift();
+        }
+
+        // Update smoothly without the vertical bounce
+        overviewPerformanceInstance.update('none');
+    }
+
     // Keyed Node DOM Reconciliation Helper (Fixes innerHTML thrashing)
     function updateDeviceTable(tbodyElement, devices) {
         if (!tbodyElement) return;
@@ -452,6 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 renderDevices();
+                pushLiveNetworkPerformanceData(deviceTracker.size);
             } else {
                 console.error("Scan failed:", data.error);
             }
@@ -993,6 +1104,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Execute the fetch immediately when the app loads
     fetchNetworkInfo();
+
+    // Initialize the Overview Performance Chart
+    updateNetworkPerformanceChart();
 
     // Auto-trigger visibility-aware network scan polling on initial page load
     window.addEventListener('load', () => {
